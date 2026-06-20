@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('credManager', {
   // Switch color theme: 'dark' | 'light' | 'system'
   setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
 
+  // Per-launch secret token — injected into every API request header
+  getAppToken: () => ipcRenderer.invoke('get-app-token'),
+
   // Listen for update events pushed from main process
   onUpdateAvailable: (cb) => {
     ipcRenderer.on('update-available', (_event, info) => cb(info))

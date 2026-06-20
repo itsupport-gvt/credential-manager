@@ -7,6 +7,7 @@
 const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } = require('electron')
 const path   = require('path')
 const fs     = require('fs')
+const crypto = require('crypto')
 const { spawn } = require('child_process')
 const net    = require('net')
 
@@ -37,6 +38,11 @@ const BACKEND_EXE = IS_DEV
   : path.join(process.resourcesPath, 'backend', 'credential-backend.exe')
 
 const DEFAULT_PORT  = 8100
+
+// Random 256-bit token generated fresh every launch.
+// Passed to the backend process via env var; exposed to the renderer via IPC.
+// Prevents any other process on this machine (or LAN) from calling the API.
+const APP_SECRET_TOKEN = crypto.randomBytes(32).toString('hex')
 
 // ---------------------------------------------------------------------------
 // State
@@ -370,6 +376,7 @@ function startBackend (port) {
       ...process.env,
       PORT:              String(port),
       CRED_DATA_DIR:     APP_DATA,
+      APP_SECRET_TOKEN:  APP_SECRET_TOKEN,
       PYTHONUNBUFFERED:  '1',
     },
     windowsHide: true,
@@ -447,6 +454,7 @@ ipcMain.handle('setup-complete', async (_event, data) => {
 
 ipcMain.handle('get-port',        () => currentPort)
 ipcMain.handle('get-app-version', () => app.getVersion())
+ipcMain.handle('get-app-token',   () => APP_SECRET_TOKEN)
 
 ipcMain.handle('open-settings', () => {
   createSetupWindow()

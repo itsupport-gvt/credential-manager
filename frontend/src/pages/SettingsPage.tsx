@@ -5,6 +5,7 @@ import type { SyncStatus } from '../lib/types'
 declare global {
   interface Window {
     credManager?: {
+      getAppToken: () => Promise<string>
       getConfig: () => Promise<{
         tenantId: string
         clientId: string

@@ -8,8 +8,28 @@ import type {
   SyncStatus,
 } from './types'
 
+// ---------------------------------------------------------------------------
+// Per-launch app token (injected by Electron via IPC; null in browser dev mode)
+// ---------------------------------------------------------------------------
+
+let _cachedToken: string | null | undefined = undefined  // undefined = not yet fetched
+
+async function getAppToken(): Promise<string | null> {
+  if (_cachedToken !== undefined) return _cachedToken
+  try {
+    const win = window as Window & { credManager?: { getAppToken?: () => Promise<string> } }
+    _cachedToken = (await win.credManager?.getAppToken?.()) ?? null
+  } catch {
+    _cachedToken = null
+  }
+  return _cachedToken
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init)
+  const token = await getAppToken()
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) }
+  if (token) headers['X-App-Token'] = token
+  const res = await fetch(path, { ...init, headers })
   if (!res.ok) {
     let message = `HTTP ${res.status}: ${res.statusText}`
     try {

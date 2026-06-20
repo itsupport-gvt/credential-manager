@@ -14,7 +14,9 @@ Routes:
 
 from __future__ import annotations
 
+import hmac
 import logging
+import os
 import socket
 import threading
 from contextlib import asynccontextmanager
@@ -24,6 +26,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import SessionLocal, create_tables, engine, run_migrations
 from models import SyncStatusResponse
@@ -40,6 +43,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 APP_VERSION = "1.0.0"
+
+# Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
+_APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
+
+
+class TokenAuthMiddleware(BaseHTTPMiddleware):
+    """Require X-App-Token header on all /api/* routes when a token is configured."""
+
+    async def dispatch(self, request: Request, call_next):
+        if _APP_SECRET_TOKEN and request.url.path.startswith("/api/"):
+            provided = request.headers.get("X-App-Token", "")
+            if not hmac.compare_digest(provided, _APP_SECRET_TOKEN):
+                return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        return await call_next(request)
 
 # ---------------------------------------------------------------------------
 # LAN IP detection (same UDP trick as asset app)
@@ -139,13 +156,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS – allow all origins (Electron / localhost dev)
+# Token auth – must be added before CORS so it runs first
+app.add_middleware(TokenAuthMiddleware)
+
+# CORS – localhost only (Electron renderer / dev server)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
+                   "http://localhost:8100",  "http://127.0.0.1:8100"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-App-Token"],
 )
 
 # ---------------------------------------------------------------------------
@@ -273,7 +294,7 @@ if __name__ == "__main__":
     logger.info("Starting Credential Manager on http://%s:8100", lan_ip)
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8100,
         reload=False,
         log_level="info",
