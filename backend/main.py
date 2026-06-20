@@ -296,12 +296,13 @@ else:
 if __name__ == "__main__":
     import uvicorn
 
+    _port = int(os.environ.get("PORT", "8100"))
     lan_ip = _get_lan_ip()
-    logger.info("Starting Credential Manager on http://%s:8100", lan_ip)
+    logger.info("Starting Credential Manager on http://%s:%d", lan_ip, _port)
     uvicorn.run(
-        "main:app",
+        app,           # pass the object directly — string import breaks in PyInstaller
         host="127.0.0.1",
-        port=8100,
+        port=_port,
         reload=False,
         log_level="info",
     )
