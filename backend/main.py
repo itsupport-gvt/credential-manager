@@ -18,6 +18,7 @@ import hmac
 import logging
 import os
 import socket
+import sys
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -253,7 +254,12 @@ def health_check() -> dict:
 # Static file serving (React SPA)
 # ---------------------------------------------------------------------------
 
-_static_dir = Path(__file__).parent / "static"
+# In a PyInstaller onefile frozen exe, data files land in sys._MEIPASS, not
+# next to __file__ (which may resolve to the exe itself).
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    _static_dir = Path(sys._MEIPASS) / "static"
+else:
+    _static_dir = Path(__file__).parent / "static"
 
 if _static_dir.exists():
     # Mount static assets (JS, CSS, images)

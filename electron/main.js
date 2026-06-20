@@ -141,39 +141,6 @@ function writeEnvFile (config, port) {
   log('.env written to ' + ENV_FILE)
 }
 
-// ---------------------------------------------------------------------------
-// Sync frontend assets from ASAR / resources into userData/static/
-// This means auto-updated app bundles are always written fresh on launch.
-// ---------------------------------------------------------------------------
-
-function syncFrontend () {
-  const dest = path.join(APP_DATA, 'static')
-  try {
-    if (!fs.existsSync(FRONTEND_DIST)) {
-      log('[sync] frontend-dist not found at ' + FRONTEND_DIST + ' – skipping')
-      return
-    }
-    fs.mkdirSync(dest, { recursive: true })
-    copyDirRecursive(FRONTEND_DIST, dest)
-    log('[sync] frontend synced from ' + FRONTEND_DIST + ' → ' + dest)
-  } catch (err) {
-    log('[sync] ERROR: ' + err.message)
-  }
-}
-
-function copyDirRecursive (src, dest) {
-  const entries = fs.readdirSync(src, { withFileTypes: true })
-  for (const entry of entries) {
-    const srcPath  = path.join(src,  entry.name)
-    const destPath = path.join(dest, entry.name)
-    if (entry.isDirectory()) {
-      fs.mkdirSync(destPath, { recursive: true })
-      copyDirRecursive(srcPath, destPath)
-    } else {
-      fs.copyFileSync(srcPath, destPath)
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Poll /health until the backend is ready (or timeout)
@@ -230,58 +197,7 @@ function createSplashWindow () {
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   })
 
-  const splashHtml = /* html */ `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    background: #0f0f1a;
-    color: #e2e8f0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    user-select: none;
-  }
-  .logo {
-    width: 72px; height: 72px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    border-radius: 18px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 28px; font-weight: 800; color: #fff;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 32px rgba(99,102,241,.45);
-  }
-  h1 { font-size: 18px; font-weight: 700; letter-spacing: .3px; margin-bottom: 4px; }
-  .sub { font-size: 12px; color: #94a3b8; margin-bottom: 28px; }
-  .status { font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px; }
-  .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #6366f1;
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%,100% { opacity: .3; transform: scale(.8); }
-    50%      { opacity: 1;  transform: scale(1.2); }
-  }
-</style>
-</head>
-<body>
-  <div class="logo">CM</div>
-  <h1>Credential Manager</h1>
-  <p class="sub">Gravity Business Partners</p>
-  <div class="status">
-    <div class="dot"></div>
-    Starting application&hellip;
-  </div>
-</body>
-</html>`
-
-  splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(splashHtml))
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'))
   splashWindow.on('closed', () => { splashWindow = null })
 }
 
@@ -590,9 +506,6 @@ app.whenReady().then(async () => {
     app.quit()
     return
   }
-
-  // Sync frontend assets
-  syncFrontend()
 
   // Read config
   const config = readConfig()
