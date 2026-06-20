@@ -1,0 +1,39 @@
+{
+  "name": "credential-manager",
+  "version": "1.0.0",
+  "description": "Credential Manager by Gravity Business Partners",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.gravitybp.credentialmanager",
+    "productName": "Credential Manager",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico",
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "extraResources": [
+      { "from": "../backend/dist/credential-backend.exe", "to": "backend/credential-backend.exe" }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "itsupport-gvt",
+      "repo": "credential-manager"
+    }
+  }
+}

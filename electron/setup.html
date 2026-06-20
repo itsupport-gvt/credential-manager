@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Credential Manager – Setup</title>
+  <style>
+    /* ── Design tokens ─────────────────────────────────────────── */
+    :root {
+      --clr-header-bg:    #1f2937;
+      --clr-header-text:  #f9fafb;
+      --clr-header-sub:   #9ca3af;
+      --clr-body-bg:      #f8fafc;
+      --clr-card-bg:      #ffffff;
+      --clr-border:       #e2e8f0;
+      --clr-label:        #374151;
+      --clr-input-bg:     #ffffff;
+      --clr-input-border: #d1d5db;
+      --clr-input-focus:  #6366f1;
+      --clr-placeholder:  #9ca3af;
+      --clr-text:         #111827;
+      --clr-text-muted:   #6b7280;
+      --clr-accent:       #6366f1;
+      --clr-accent-hover: #4f46e5;
+      --clr-accent-text:  #ffffff;
+      --clr-success:      #059669;
+      --clr-error:        #dc2626;
+      --clr-error-bg:     #fef2f2;
+      --clr-error-border: #fecaca;
+      --radius-sm:        6px;
+      --radius-md:        10px;
+      --shadow-card:      0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    }
+
+    /* ── Reset ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: var(--clr-body-bg);
+      color: var(--clr-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .header {
+      background: var(--clr-header-bg);
+      color: var(--clr-header-text);
+      padding: 22px 28px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .header-logo {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      line-height: 1.2;
+    }
+
+    .header-text p {
+      font-size: 12px;
+      color: var(--clr-header-sub);
+      margin-top: 2px;
+    }
+
+    /* ── Body ────────────────────────────────────────────────────── */
+    .body {
+      flex: 1;
+      padding: 22px 24px 24px;
+      overflow-y: auto;
+    }
+
+    /* ── Form ────────────────────────────────────────────────────── */
+    .field + .field { margin-top: 14px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--clr-label);
+      margin-bottom: 5px;
+      letter-spacing: .2px;
+    }
+
+    label .required {
+      color: var(--clr-error);
+      margin-left: 2px;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      height: 38px;
+      padding: 0 12px;
+      border: 1.5px solid var(--clr-input-border);
+      border-radius: var(--radius-sm);
+      background: var(--clr-input-bg);
+      color: var(--clr-text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--clr-input-focus);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+
+    input::placeholder { color: var(--clr-placeholder); }
+
+    input.has-error {
+      border-color: var(--clr-error) !important;
+      box-shadow: 0 0 0 3px rgba(220,38,38,.12) !important;
+    }
+
+    /* password toggle */
+    .toggle-pw {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--clr-text-muted);
+      padding: 4px;
+      display: flex;
+      align-items: center;
+    }
+    .toggle-pw:hover { color: var(--clr-text); }
+
+    input[type="password"] { padding-right: 36px; }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--clr-text-muted);
+      margin-top: 4px;
+    }
+
+    .field-error {
+      font-size: 11px;
+      color: var(--clr-error);
+      margin-top: 4px;
+      display: none;
+    }
+    .field-error.visible { display: block; }
+
+    /* ── Global error banner ─────────────────────────────────────── */
+    .error-banner {
+      display: none;
+      background: var(--clr-error-bg);
+      border: 1px solid var(--clr-error-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: var(--clr-error);
+      margin-bottom: 16px;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ── Divider ─────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--clr-border);
+      margin: 20px 0 16px;
+    }
+
+    /* ── Actions ─────────────────────────────────────────────────── */
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      height: 38px;
+      padding: 0 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: background .15s, border-color .15s, opacity .15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: var(--clr-accent);
+      color: var(--clr-accent-text);
+      border-color: var(--clr-accent);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--clr-accent-hover);
+      border-color: var(--clr-accent-hover);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--clr-label);
+      border-color: var(--clr-input-border);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--clr-border);
+    }
+
+    .btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    /* ── Loading overlay ─────────────────────────────────────────── */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,15,26,.75);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: #f1f5f9;
+    }
+    .loading-overlay.visible { display: flex; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,.2);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-msg {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .loading-sub {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    /* ── Success state ────────────────────────────────────────────── */
+    .success-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #0f0f1a;
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #f1f5f9;
+    }
+    .success-overlay.visible { display: flex; }
+
+    .check-icon {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, #059669, #10b981);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+    }
+    .success-overlay h2 { font-size: 18px; font-weight: 700; }
+    .success-overlay p  { font-size: 13px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <img src="assets/cred_manager.svg" alt="Credential Manager" class="header-logo" />
+    <div class="header-text">
+      <h1>Credential Manager Setup</h1>
+      <p>Connect to your SharePoint credential store</p>
+    </div>
+  </header>
+
+  <!-- Form body -->
+  <div class="body">
+    <div id="errorBanner" class="error-banner" role="alert"></div>
+
+    <form id="setupForm" novalidate>
+
+      <!-- Tenant ID -->
+      <div class="field">
+        <label for="tenantId">SharePoint Tenant ID <span class="required">*</span></label>
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="tenantId"
+            name="tenantId"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="field-error" id="err-tenantId">Tenant ID is required.</div>
+        <div class="field-hint">Found in Azure Active Directory &rsaquo; Properties</div>
+      </div>
+
+      <!-- Client ID -->
+      <div class="field">
+        <label for="clientId">SharePoint Client ID <span class="required">*</span></label>
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="clientId"
+            name="clientId"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="field-error" id="err-clientId">Client ID is required.</div>
+        <div class="field-hint">Application (client) ID of your Azure App Registration</div>
+      </div>
+
+      <!-- Client Secret -->
+      <div class="field">
+        <label for="clientSecret">SharePoint Client Secret <span class="required">*</span></label>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="clientSecret"
+            name="clientSecret"
+            placeholder="Paste your client secret value"
+            autocomplete="new-password"
+          />
+          <button type="button" class="toggle-pw" id="toggleSecret" aria-label="Show/hide secret" tabindex="-1">
+            <!-- eye icon -->
+            <svg id="eyeOpen" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
+              <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg id="eyeClosed" style="display:none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="field-error" id="err-clientSecret">Client Secret is required.</div>
+        <div class="field-hint">Client secret value (not the secret ID)</div>
+      </div>
+
+      <!-- File URL -->
+      <div class="field">
+        <label for="fileUrl">SharePoint File URL <span class="required">*</span></label>
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="fileUrl"
+            name="fileUrl"
+            placeholder="https://company.sharepoint.com/:x:/s/..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="field-error" id="err-fileUrl">A valid SharePoint URL is required.</div>
+        <div class="field-hint">Direct link to the Excel workbook in SharePoint</div>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="actions">
+        <button type="button" id="btnTest" class="btn btn-secondary">
+          Test Connection
+        </button>
+        <button type="submit" id="btnSave" class="btn btn-primary">
+          Save &amp; Launch
+        </button>
+      </div>
+
+    </form>
+  </div><!-- /.body -->
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-msg">Connecting to SharePoint&hellip;</div>
+    <div class="loading-sub">Starting the backend service, please wait.</div>
+  </div>
+
+  <!-- Success overlay -->
+  <div class="success-overlay" id="successOverlay">
+    <div class="check-icon">&#10003;</div>
+    <h2>Configuration saved!</h2>
+    <p>Launching Credential Manager&hellip;</p>
+  </div>
+
+  <script>
+    // ── Utility helpers ───────────────────────────────────────────
+    const $  = (id) => document.getElementById(id)
+    const fields = ['tenantId', 'clientId', 'clientSecret', 'fileUrl']
+
+    // Pre-fill from existing config if re-opening settings
+    async function prefill () {
+      if (!window.credManager) return
+      try {
+        const cfg = await window.credManager.getConfig()
+        if (!cfg) return
+        $('tenantId').value    = cfg.tenantId    || ''
+        $('clientId').value    = cfg.clientId    || ''
+        $('clientSecret').value = cfg.clientSecret || ''
+        $('fileUrl').value     = cfg.fileUrl     || ''
+      } catch (_) { /* ignore */ }
+    }
+    prefill()
+
+    // ── Show/hide password toggle ─────────────────────────────────
+    $('toggleSecret').addEventListener('click', () => {
+      const inp = $('clientSecret')
+      const showing = inp.type === 'text'
+      inp.type = showing ? 'password' : 'text'
+      $('eyeOpen').style.display  = showing ? '' : 'none'
+      $('eyeClosed').style.display = showing ? 'none' : ''
+    })
+
+    // ── Validation ────────────────────────────────────────────────
+    function clearErrors () {
+      fields.forEach(f => {
+        $(f).classList.remove('has-error')
+        $('err-' + f).classList.remove('visible')
+      })
+      $('errorBanner').classList.remove('visible')
+      $('errorBanner').textContent = ''
+    }
+
+    function showFieldError (field, msg) {
+      $(field).classList.add('has-error')
+      $('err-' + field).textContent = msg
+      $('err-' + field).classList.add('visible')
+    }
+
+    function showBanner (msg) {
+      $('errorBanner').textContent = msg
+      $('errorBanner').classList.add('visible')
+    }
+
+    function isGuid (val) {
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim())
+    }
+
+    function isSharePointUrl (val) {
+      try {
+        const u = new URL(val.trim())
+        return (u.protocol === 'https:') && u.hostname.includes('sharepoint.com')
+      } catch (_) { return false }
+    }
+
+    function validateForm () {
+      clearErrors()
+      let ok = true
+
+      const tid = $('tenantId').value.trim()
+      const cid = $('clientId').value.trim()
+      const cs  = $('clientSecret').value.trim()
+      const fu  = $('fileUrl').value.trim()
+
+      if (!tid) { showFieldError('tenantId', 'Tenant ID is required.'); ok = false }
+      else if (!isGuid(tid)) { showFieldError('tenantId', 'Must be a valid GUID (xxxxxxxx-xxxx-...).'); ok = false }
+
+      if (!cid) { showFieldError('clientId', 'Client ID is required.'); ok = false }
+      else if (!isGuid(cid)) { showFieldError('clientId', 'Must be a valid GUID (xxxxxxxx-xxxx-...).'); ok = false }
+
+      if (!cs) { showFieldError('clientSecret', 'Client Secret is required.'); ok = false }
+
+      if (!fu) { showFieldError('fileUrl', 'SharePoint File URL is required.'); ok = false }
+      else if (!isSharePointUrl(fu)) { showFieldError('fileUrl', 'Must be a valid https://...sharepoint.com/... URL.'); ok = false }
+
+      return ok
+    }
+
+    function getFormData () {
+      return {
+        tenantId:     $('tenantId').value.trim(),
+        clientId:     $('clientId').value.trim(),
+        clientSecret: $('clientSecret').value.trim(),
+        fileUrl:      $('fileUrl').value.trim(),
+      }
+    }
+
+    function setLoading (on) {
+      $('btnSave').disabled = on
+      $('btnTest').disabled = on
+      $('loadingOverlay').classList.toggle('visible', on)
+    }
+
+    // ── Test Connection (client-side field validation only) ───────
+    $('btnTest').addEventListener('click', () => {
+      clearErrors()
+      const ok = validateForm()
+      if (ok) {
+        // All fields look correct; actual SharePoint test happens when the backend starts.
+        $('errorBanner').style.background = '#f0fdf4'
+        $('errorBanner').style.borderColor = '#bbf7d0'
+        $('errorBanner').style.color = '#15803d'
+        $('errorBanner').textContent = 'All fields are valid. Click "Save & Launch" to start the backend and test the SharePoint connection.'
+        $('errorBanner').classList.add('visible')
+      }
+    })
+
+    // ── Submit / Save & Launch ────────────────────────────────────
+    $('setupForm').addEventListener('submit', async (e) => {
+      e.preventDefault()
+
+      // Reset any test-connection styling
+      $('errorBanner').style = ''
+
+      if (!validateForm()) return
+
+      const data = getFormData()
+
+      if (!window.credManager) {
+        showBanner('Electron API not available. Are you running inside the app?')
+        return
+      }
+
+      setLoading(true)
+
+      try {
+        const result = await window.credManager.setupComplete(data)
+        if (result && result.ok === false) {
+          setLoading(false)
+          showBanner('Backend failed to start: ' + (result.error || 'Unknown error'))
+          return
+        }
+        // Success – show success overlay; window closes from main process
+        $('loadingOverlay').classList.remove('visible')
+        $('successOverlay').classList.add('visible')
+      } catch (err) {
+        setLoading(false)
+        showBanner('Unexpected error: ' + err.message)
+      }
+    })
+  </script>
+</body>
+</html>

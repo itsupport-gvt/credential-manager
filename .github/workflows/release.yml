@@ -1,0 +1,159 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Credential Manager — Build & Release
+#
+# Triggers when you push a version tag, e.g.:
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# Produces (uploaded to GitHub Release):
+#   - Credential Manager Setup <version>.exe    (NSIS installer)
+#   - Credential Manager Setup <version>.exe.blockmap
+#   - latest.yml                                (auto-update manifest)
+#
+# electron-updater on installed clients detects latest.yml and downloads
+# the update silently in the background.
+#
+# SETUP (one-time):
+#   1. Repo: Settings → Secrets → Actions → New secret
+#      Name: GH_TOKEN  |  Value: GitHub PAT with "repo" scope
+#   2. Push a v* tag to trigger this workflow.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # required to create GitHub Releases
+
+jobs:
+  release:
+    name: Build Windows installer & publish release
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js ──────────────────────────────────────────────────────────
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── 3. Python 3.12 ──────────────────────────────────────────────────────
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── 4. Python venv + backend dependencies ───────────────────────────────
+      - name: Install backend Python dependencies
+        working-directory: backend
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\pip install --upgrade pip --quiet
+          .\.venv\Scripts\pip install -r requirements.txt --quiet
+          .\.venv\Scripts\pip install pyinstaller --quiet
+          Write-Host "Python dependencies installed."
+
+      # ── 5. Build React frontend ─────────────────────────────────────────────
+      - name: Build React frontend
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          npm ci --no-fund --no-audit
+          npm run build
+          if (!(Test-Path "..\backend\static\index.html")) {
+            Write-Error "Frontend build FAILED — backend/static/index.html missing!"; exit 1
+          }
+          $jsFile = Get-ChildItem "..\backend\static\assets\*.js" | Select-Object -First 1
+          Write-Host "Frontend build OK — bundle: $($jsFile.Name) ($([Math]::Round($jsFile.Length/1KB)) KB)"
+
+      # ── 6. PyInstaller — bundle FastAPI backend + static frontend ───────────
+      #    The spec uses --onefile and bundles backend/static/ as data,
+      #    so the frozen exe serves the React SPA from sys._MEIPASS/static.
+      - name: Run PyInstaller
+        shell: pwsh
+        run: |
+          backend\.venv\Scripts\python -m PyInstaller `
+            backend\backend.spec `
+            --distpath backend\dist `
+            --workpath backend\build `
+            --noconfirm
+          $exe = Get-Item "backend\dist\credential-backend.exe"
+          Write-Host "PyInstaller complete — $($exe.Name): $([Math]::Round($exe.Length/1MB, 1)) MB"
+
+      # ── 7. Generate app icon ─────────────────────────────────────────────────
+      #    Try ImageMagick (pre-installed on windows-latest); fall back to the
+      #    zero-dep gen-icon.js script bundled in the repo.
+      - name: Generate app icon (SVG → ICO)
+        shell: pwsh
+        run: |
+          try {
+            magick -background none -density 300 `
+              electron\assets\cred_manager.svg `
+              -define icon:auto-resize=256,128,64,48,32,16 `
+              electron\icon.ico
+            if (Test-Path electron\icon.ico) {
+              Write-Host "icon.ico generated via ImageMagick: $((Get-Item electron\icon.ico).Length) bytes"
+            } else { throw "icon.ico not created" }
+          } catch {
+            Write-Warning "ImageMagick failed ($_) — using gen-icon.js fallback"
+            node electron\gen-icon.js
+          }
+
+      # ── 8. Install Electron npm dependencies ─────────────────────────────────
+      - name: Install Electron npm dependencies
+        working-directory: electron
+        run: npm install --no-fund --no-audit
+
+      # ── 9. electron-builder — build NSIS installer + publish to GitHub ───────
+      - name: Build and publish Electron app
+        working-directory: electron
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'   # no code-signing certificate
+          WIN_CSC_KEY_PASSWORD: ''
+
+        run: |
+          # ── winCodeSign workaround ─────────────────────────────────────────
+          # electron-builder downloads winCodeSign-2.6.0.7z which contains
+          # macOS symlinks. Windows without Developer Mode cannot create them,
+          # causing 7-zip extraction to fail. Pre-extract manually and stub
+          # the two macOS symlinks so electron-builder skips the download.
+          $WCSIGN_DIR = "$env:LOCALAPPDATA\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0"
+          $SEVEN_ZIP  = ".\node_modules\7zip-bin\win\x64\7za.exe"
+
+          if (-not (Test-Path $WCSIGN_DIR)) {
+            New-Item -ItemType Directory -Force -Path $WCSIGN_DIR | Out-Null
+            $ARCHIVE     = "$env:TEMP\winCodeSign-2.6.0.7z"
+            $ARCHIVE_URL = "https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z"
+            try {
+              Invoke-WebRequest -Uri $ARCHIVE_URL -OutFile $ARCHIVE -UseBasicParsing
+              & $SEVEN_ZIP x -y "-o$WCSIGN_DIR" $ARCHIVE 2>&1 | Out-Null
+            } catch {
+              Write-Warning "winCodeSign download failed: $_ (build may still succeed)"
+            }
+            foreach ($rel in @(
+              "darwin\10.12\lib\libcrypto.dylib",
+              "darwin\10.12\lib\libssl.dylib"
+            )) {
+              $full = Join-Path $WCSIGN_DIR $rel
+              if (-not (Test-Path $full)) { New-Item -ItemType File -Force -Path $full | Out-Null }
+            }
+            if (Test-Path $ARCHIVE) { Remove-Item $ARCHIVE -ErrorAction SilentlyContinue }
+            Write-Host "winCodeSign cache pre-built."
+          } else {
+            Write-Host "winCodeSign cache already present — skipping download."
+          }
+
+          # ── Build + upload to GitHub Release ──────────────────────────────
+          npx electron-builder --publish always
+          Write-Host "Electron build + publish complete."
