@@ -349,13 +349,9 @@ ipcMain.handle('setup-complete', async (_event, data) => {
 
   try {
     await pollHealth(currentPort, 35000)
+    if (!mainWindow) createMainWindow(currentPort)
+    else mainWindow.loadURL(`http://127.0.0.1:${currentPort}`)
     if (splashWindow) { splashWindow.destroy(); splashWindow = null }
-    if (!mainWindow) {
-      createMainWindow(currentPort)
-    } else {
-      mainWindow.loadURL(`http://127.0.0.1:${currentPort}`)
-      mainWindow.show()
-    }
     return { ok: true }
   } catch (err) {
     if (splashWindow) { splashWindow.destroy(); splashWindow = null }
@@ -526,8 +522,8 @@ app.whenReady().then(async () => {
 
   try {
     await pollHealth(currentPort, 35000)
-    if (splashWindow) { splashWindow.destroy(); splashWindow = null }
-    createMainWindow(currentPort)
+    createMainWindow(currentPort)                                    // create first
+    if (splashWindow) { splashWindow.destroy(); splashWindow = null } // then close splash
   } catch (err) {
     if (splashWindow) { splashWindow.destroy(); splashWindow = null }
     const choice = await dialog.showMessageBox({
