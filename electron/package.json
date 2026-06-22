@@ -1,6 +1,6 @@
 {
   "name": "credential-manager",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Credential Manager by Gravity Business Partners",
   "main": "main.js",
   "scripts": {
