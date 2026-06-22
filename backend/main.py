@@ -262,8 +262,10 @@ else:
     _static_dir = Path(__file__).parent / "static"
 
 if _static_dir.exists():
-    # Mount static assets (JS, CSS, images)
-    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+    # Mount the /assets sub-directory so Vite's "/assets/index-xxx.js" references resolve
+    _assets_dir = _static_dir / "assets"
+    if _assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="static-assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_catch_all(request: Request, full_path: str) -> FileResponse:
