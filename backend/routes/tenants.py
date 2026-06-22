@@ -319,3 +319,102 @@ def update_user(email: str, body: UpdateUserRequest, db: Session = Depends(get_d
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)
+
+
+@router.delete("/user/{email}", status_code=204)
+def delete_user(email: str, db: Session = Depends(get_db)) -> None:
+    user = db.query(DBUser).filter(DBUser.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User '{email}' not found.")
+    db.delete(user)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Tenant delete
+# ---------------------------------------------------------------------------
+
+@router.delete("/tenant/{tenant_code}", status_code=204)
+def delete_tenant(tenant_code: str, db: Session = Depends(get_db)) -> None:
+    from models_db import DBCredential
+    tenant = db.query(DBTenant).filter(DBTenant.tenant_code == tenant_code).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail=f"Tenant '{tenant_code}' not found.")
+    cred_count = db.query(DBCredential).filter(DBCredential.tenant_code == tenant_code).count()
+    if cred_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot delete tenant '{tenant_code}': {cred_count} credential(s) still reference it.",
+        )
+    db.delete(tenant)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Category CRUD
+# ---------------------------------------------------------------------------
+
+class CreateCategoryRequest(BaseModel):
+    category_name: str
+    category_code: str
+    description: Optional[str] = ""
+    subcategories: Optional[str] = ""  # semicolon-separated
+
+
+class UpdateCategoryRequest(BaseModel):
+    category_name: Optional[str] = None
+    category_code: Optional[str] = None
+    description: Optional[str] = None
+    subcategories: Optional[str] = None
+
+
+def _next_category_id(db: Session) -> str:
+    row = db.query(DBCategory.category_id).order_by(DBCategory.category_id.desc()).first()
+    if row:
+        try:
+            num = int(row[0].split("-")[-1])
+        except (ValueError, IndexError):
+            num = 0
+        return f"CAT-{num + 1:03d}"
+    return "CAT-001"
+
+
+@router.post("/category/create", response_model=CategoryResponse, status_code=201)
+def create_category(body: CreateCategoryRequest, db: Session = Depends(get_db)) -> CategoryResponse:
+    existing = db.query(DBCategory).filter(DBCategory.category_name == body.category_name).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Category '{body.category_name}' already exists.")
+    cat = DBCategory(
+        category_id=_next_category_id(db),
+        category_name=body.category_name,
+        category_code=body.category_code,
+        description=body.description or "",
+        subcategories=body.subcategories or "",
+    )
+    db.add(cat)
+    db.commit()
+    db.refresh(cat)
+    return _cat_to_response(cat)
+
+
+@router.post("/category/update/{category_id}", response_model=CategoryResponse)
+def update_category(category_id: str, body: UpdateCategoryRequest, db: Session = Depends(get_db)) -> CategoryResponse:
+    cat = db.query(DBCategory).filter(DBCategory.category_id == category_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found.")
+    for field in ["category_name", "category_code", "description", "subcategories"]:
+        val = getattr(body, field, None)
+        if val is not None:
+            setattr(cat, field, val)
+    db.commit()
+    db.refresh(cat)
+    return _cat_to_response(cat)
+
+
+@router.delete("/category/{category_id}", status_code=204)
+def delete_category(category_id: str, db: Session = Depends(get_db)) -> None:
+    cat = db.query(DBCategory).filter(DBCategory.category_id == category_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail=f"Category '{category_id}' not found.")
+    db.delete(cat)
+    db.commit()

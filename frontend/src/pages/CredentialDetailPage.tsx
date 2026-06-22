@@ -5,35 +5,30 @@ import type { Credential, ChangeLogItem } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { MaskedField } from '../components/MaskedField'
+import { useToast } from '../App'
 
-interface SectionProps {
-  title: string
-  defaultOpen?: boolean
-  children: ReactNode
-}
-
-function Section({ title, defaultOpen = true, children }: SectionProps) {
+function Section({ title, open: defaultOpen = true, children }: { title: string; open?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-4">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-      >
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{title}</span>
-        <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px',
+        background: 'var(--surface-2)', border: 'none', cursor: 'pointer', textAlign: 'left',
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>{title}</span>
+        <span className="icon icon-sm" style={{ color: 'var(--text-3)' }}>{open ? 'expand_less' : 'expand_more'}</span>
       </button>
-      {open && <div className="px-4 py-4 bg-white dark:bg-gray-800">{children}</div>}
+      {open && <div style={{ padding: '16px', background: 'var(--surface)' }}>{children}</div>}
     </div>
   )
 }
 
-function FieldRow({ label, value }: { label: string; value: ReactNode }) {
+function FR({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid grid-cols-[180px_1fr] gap-2 py-1.5 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
-      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 pt-0.5">{label}</div>
-      <div className="text-sm text-gray-900 dark:text-gray-100 break-all">
-        {value || <span className="text-gray-300 dark:text-gray-600">—</span>}
+    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>{label}</div>
+      <div style={{ fontSize: 13, color: 'var(--text-1)', wordBreak: 'break-all' }}>
+        {value || <span style={{ color: 'var(--text-3)' }}>—</span>}
       </div>
     </div>
   )
@@ -47,120 +42,54 @@ function ChangeLogTable({ credentialId }: { credentialId: string }) {
 
   useEffect(() => {
     setLoading(true)
-    api
-      .getChangeLog({ credential_id: credentialId, page, page_size: 20 })
-      .then((data) => {
-        setItems(data.items)
-        setTotal(data.total)
-      })
+    api.getChangeLog({ credential_id: credentialId, page, page_size: 20 })
+      .then(d => { setItems(d.items); setTotal(d.total) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [credentialId, page])
 
-  if (loading) {
-    return (
-      <div className="animate-pulse space-y-2 p-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-8 bg-gray-100 dark:bg-gray-700 rounded" />
-        ))}
-      </div>
-    )
-  }
+  if (loading) return <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Loading…</div>
+  if (items.length === 0) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>No change history</div>
 
-  if (items.length === 0) {
-    return (
-      <div className="py-12 text-center text-gray-400 text-sm">
-        No change history for this credential
-      </div>
-    )
+  function ab(a: string) {
+    if (a === 'CREATE') return 'badge-active'
+    if (a === 'DELETE' || a === 'ARCHIVE') return 'badge-danger'
+    if (a === 'REVEAL' || a === 'ACCESS') return 'badge-purple'
+    return 'badge-blue'
   }
 
   return (
     <div>
-      <p className="text-xs text-gray-400 mb-3">{total} log entries</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 12 }}>{total} log entries</div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-700/50">
-              <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                Timestamp
-              </th>
-              <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                Action
-              </th>
-              <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                Field
-              </th>
-              <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                Old
-              </th>
-              <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                New
-              </th>
-              <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                By
-              </th>
+            <tr style={{ background: 'var(--surface-2)' }}>
+              {['Timestamp', 'Action', 'Field', 'Old', 'New', 'By'].map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr
-                key={item.id}
-                className="border-t border-gray-100 dark:border-gray-700"
-              >
-                <td className="px-3 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
-                  {new Date(item.timestamp).toLocaleString()}
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                      item.action === 'CREATE'
-                        ? 'bg-green-100 text-green-800'
-                        : item.action === 'DELETE' || item.action === 'ARCHIVE'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-blue-100 text-blue-800'
-                    }`}
-                  >
-                    {item.action}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">
-                  {item.field_changed}
-                </td>
-                <td className="px-3 py-2 text-gray-500 dark:text-gray-500 font-mono text-xs max-w-[120px] truncate">
-                  {item.old_value_masked || '—'}
-                </td>
-                <td className="px-3 py-2 text-gray-700 dark:text-gray-300 font-mono text-xs max-w-[120px] truncate">
-                  {item.new_value_masked || '—'}
-                </td>
-                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">
-                  {item.changed_by}
-                </td>
+            {items.map(item => (
+              <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ padding: '8px 12px', color: 'var(--text-2)', whiteSpace: 'nowrap', fontSize: 12 }}>{new Date(item.timestamp).toLocaleString()}</td>
+                <td style={{ padding: '8px 12px' }}><span className={ab(item.action)}>{item.action}</span></td>
+                <td style={{ padding: '8px 12px', color: 'var(--text-2)', fontSize: 12 }}>{item.field_changed}</td>
+                <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--danger)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.old_value_masked || '—'}</td>
+                <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--success)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.new_value_masked || '—'}</td>
+                <td style={{ padding: '8px 12px', color: 'var(--text-2)', fontSize: 12, whiteSpace: 'nowrap' }}>{item.changed_by}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {total > 20 && (
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-          <span className="text-xs text-gray-400">
-            Page {page} of {Math.ceil(total / 20)}
-          </span>
-          <div className="flex gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40"
-            >
-              Prev
-            </button>
-            <button
-              disabled={page >= Math.ceil(total / 20)}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40"
-            >
-              Next
-            </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Page {page} of {Math.ceil(total / 20)}</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="md-btn md-btn-outlined" style={{ padding: '4px 12px', fontSize: 12 }}>Prev</button>
+            <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)} className="md-btn md-btn-outlined" style={{ padding: '4px 12px', fontSize: 12 }}>Next</button>
           </div>
         </div>
       )}
@@ -171,371 +100,195 @@ function ChangeLogTable({ credentialId }: { credentialId: string }) {
 export default function CredentialDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [cred, setCred] = useState<Credential | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details')
+  const [tab, setTab] = useState<'details' | 'history'>('details')
   const [archiving, setArchiving] = useState(false)
 
   useEffect(() => {
     if (!id) return
-    setLoading(true)
-    api
-      .getCredential(id)
-      .then(setCred)
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Failed to load credential'),
-      )
-      .finally(() => setLoading(false))
+    api.getCredential(id).then(setCred).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed')).finally(() => setLoading(false))
   }, [id])
 
   async function handleArchive() {
     if (!id || !cred) return
-    if (!confirm(`Archive credential "${cred.service_name}"? This cannot be undone easily.`)) return
+    if (!confirm(`Archive "${cred.service_name}"?`)) return
     setArchiving(true)
-    try {
-      await api.archiveCredential(id)
-      navigate('/credentials')
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Archive failed')
-    } finally {
-      setArchiving(false)
-    }
+    try { await api.archiveCredential(id); showToast('Credential archived', 'success'); navigate('/credentials') }
+    catch (e) { showToast(e instanceof Error ? e.message : 'Archive failed', 'error') }
+    finally { setArchiving(false) }
   }
 
-  function fmt(val: string | number | undefined | null) {
-    if (val === null || val === undefined || val === '') return null
-    return String(val)
-  }
+  function fmt(v: string | number | undefined | null) { return v != null && v !== '' ? String(v) : null }
+  function fmtDate(v: string | undefined | null) { if (!v) return null; try { return new Date(v).toLocaleDateString() } catch { return v } }
+  function fmtCurrency(v: number | undefined | null) { if (!v) return null; return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v) }
 
-  function fmtDate(val: string | undefined | null) {
-    if (!val) return null
-    try {
-      return new Date(val).toLocaleDateString()
-    } catch {
-      return val
-    }
-  }
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ height: 28, background: 'var(--surface-2)', borderRadius: 6, width: 280, animation: 'pulse 1.5s infinite' }} />
+      {Array.from({ length: 3 }).map((_, i) => <div key={i} style={{ height: 100, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />)}
+    </div>
+  )
 
-  function fmtCurrency(val: number | undefined | null) {
-    if (val == null || val === 0) return null
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val)
-  }
-
-  if (loading) {
-    return (
-      <div className="p-6 animate-pulse">
-        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 mb-2" />
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40 mb-6" />
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
-          <strong>Error:</strong> {error}
-        </div>
-      </div>
-    )
-  }
-
+  if (error) return <div style={{ background: 'var(--danger-bg)', border: '1px solid #f5c6c3', color: 'var(--danger)', padding: '12px 16px', borderRadius: 10, fontSize: 14 }}>{error}</div>
   if (!cred) return null
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <button
-          onClick={() => navigate('/credentials')}
-          className="text-sm text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-3 flex items-center gap-1"
-        >
-          ← Back to Credentials
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Back */}
+      <button onClick={() => navigate('/credentials')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: 0, alignSelf: 'flex-start' }}>
+        <span className="icon icon-sm">arrow_back</span>Back to Credentials
+      </button>
 
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      {/* Header */}
+      <div className="md-card" style={{ padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {cred.service_name}
-              </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="icon icon-md" style={{ color: 'var(--primary)' }}>lock</span>
+              </div>
+              <h1 style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{cred.service_name}</h1>
               <StatusBadge status={cred.status} />
               <PriorityBadge priority={cred.priority} />
             </div>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                {cred.credential_id}
-              </span>
-              <span className="text-gray-300 dark:text-gray-600">·</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">{cred.tenant_name || cred.tenant_code}</span>
-              {cred.category && (
-                <>
-                  <span className="text-gray-300 dark:text-gray-600">·</span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{cred.category}</span>
-                </>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--text-3)', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'monospace' }}>{cred.credential_id}</span>
+              <span>·</span>
+              <span>{cred.tenant_name || cred.tenant_code}</span>
+              {cred.category && <><span>·</span><span>{cred.category}</span></>}
             </div>
           </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {cred.service_url && (
-              <a
-                href={cred.service_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Open Login Page ↗
+              <a href={cred.service_url} target="_blank" rel="noopener noreferrer" className="md-btn md-btn-outlined" style={{ textDecoration: 'none', fontSize: 13, padding: '6px 14px' }}>
+                <span className="icon icon-sm">open_in_new</span>Open URL
               </a>
             )}
-            <button
-              onClick={() => navigate(`/credential/${id}/edit`)}
-              className="px-3 py-2 text-sm bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
-            >
-              Edit
+            <button className="md-btn md-btn-tonal" style={{ fontSize: 13, padding: '6px 14px' }} onClick={() => navigate(`/credential/${id}/edit`)}>
+              <span className="icon icon-sm">edit</span>Edit
             </button>
-            <button
-              onClick={handleArchive}
-              disabled={archiving}
-              className="px-3 py-2 text-sm border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-            >
-              {archiving ? 'Archiving…' : 'Archive'}
+            <button className="md-btn md-btn-danger" style={{ fontSize: 13, padding: '6px 14px' }} onClick={handleArchive} disabled={archiving}>
+              <span className="icon icon-sm">archive</span>{archiving ? 'Archiving…' : 'Archive'}
             </button>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-6">
-        {(['details', 'history'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
-              activeTab === tab
-                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-          >
-            {tab === 'history' ? 'Change History' : 'Details'}
-          </button>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
+        {([['details', 'Details'], ['history', 'Change History']] as const).map(([t, label]) => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: '8px 18px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14,
+            fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
+            color: tab === t ? 'var(--primary)' : 'var(--text-2)',
+            borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+            marginBottom: -1,
+          }}>{label}</button>
         ))}
       </div>
 
-      {activeTab === 'details' && (
-        <div>
-          {/* 1. Core Identity */}
+      {tab === 'details' && (
+        <div className="animate-in">
           <Section title="1. Core Identity">
-            <div className="space-y-0">
-              <FieldRow label="Credential ID" value={fmt(cred.credential_id)} />
-              <FieldRow label="Tenant Code" value={fmt(cred.tenant_code)} />
-              <FieldRow label="Tenant Name" value={fmt(cred.tenant_name)} />
-              <FieldRow label="Category" value={fmt(cred.category)} />
-              <FieldRow label="Subcategory" value={fmt(cred.subcategory)} />
-              <FieldRow label="Service Name" value={fmt(cred.service_name)} />
-              <FieldRow
-                label="Service URL"
-                value={
-                  cred.service_url ? (
-                    <a
-                      href={cred.service_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      {cred.service_url}
-                    </a>
-                  ) : null
-                }
-              />
-              <FieldRow label="Environment" value={fmt(cred.environment)} />
-              <FieldRow
-                label="Status"
-                value={cred.status ? <StatusBadge status={cred.status} /> : null}
-              />
-              <FieldRow
-                label="Priority"
-                value={cred.priority ? <PriorityBadge priority={cred.priority} /> : null}
-              />
-            </div>
+            <FR label="Credential ID" value={fmt(cred.credential_id)} />
+            <FR label="Tenant" value={fmt(cred.tenant_name || cred.tenant_code)} />
+            <FR label="Category" value={fmt(cred.category)} />
+            <FR label="Subcategory" value={fmt(cred.subcategory)} />
+            <FR label="Service Name" value={fmt(cred.service_name)} />
+            <FR label="Service URL" value={cred.service_url ? <a href={cred.service_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>{cred.service_url}</a> : null} />
+            <FR label="Environment" value={fmt(cred.environment)} />
+            <FR label="Status" value={cred.status ? <StatusBadge status={cred.status} /> : null} />
+            <FR label="Priority" value={cred.priority ? <PriorityBadge priority={cred.priority} /> : null} />
           </Section>
 
-          {/* 2. Authentication */}
           <Section title="2. Authentication">
-            <div className="space-y-3">
-              <FieldRow label="Username / Email" value={fmt(cred.username_email)} />
-              <div className="grid grid-cols-[180px_1fr] gap-2 py-1.5 border-b border-gray-50 dark:border-gray-700/50">
-                <div className="text-xs font-medium text-gray-400 dark:text-gray-500 pt-0.5">
-                  Password
-                </div>
-                <MaskedField
-                  label=""
-                  credentialId={cred.credential_id}
-                  field="password"
-                  hasValue={cred.has_password}
-                />
-              </div>
-              <FieldRow label="Recovery Email" value={fmt(cred.recovery_email)} />
-              <FieldRow label="Recovery Phone" value={fmt(cred.recovery_phone)} />
-              <FieldRow
-                label="MFA Enabled"
-                value={
-                  cred.mfa_enabled ? (
-                    <span
-                      className={
-                        cred.mfa_enabled === 'Yes'
-                          ? 'text-green-600 dark:text-green-400 font-medium'
-                          : 'text-gray-500'
-                      }
-                    >
-                      {cred.mfa_enabled}
-                    </span>
-                  ) : null
-                }
-              />
-              <FieldRow label="MFA Type" value={fmt(cred.mfa_type)} />
-              <FieldRow label="MFA App Name" value={fmt(cred.mfa_app_name)} />
-              <FieldRow label="Backup Codes Location" value={fmt(cred.backup_codes_location)} />
-              <FieldRow label="Security Notes" value={fmt(cred.security_notes)} />
+            <FR label="Username / Email" value={fmt(cred.username_email)} />
+            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>Password</div>
+              <MaskedField label="" credentialId={cred.credential_id} field="password" hasValue={cred.has_password} />
             </div>
+            <FR label="Recovery Email" value={fmt(cred.recovery_email)} />
+            <FR label="Recovery Phone" value={fmt(cred.recovery_phone)} />
+            <FR label="MFA Enabled" value={cred.mfa_enabled === 'Yes' ? <span style={{ color: 'var(--success)', fontWeight: 600 }}>Yes</span> : 'No'} />
+            <FR label="MFA Type" value={fmt(cred.mfa_type)} />
+            <FR label="MFA App Name" value={fmt(cred.mfa_app_name)} />
+            <FR label="Backup Codes" value={fmt(cred.backup_codes_location)} />
+            <FR label="Security Notes" value={fmt(cred.security_notes)} />
           </Section>
 
-          {/* 3. Account Details */}
-          <Section title="3. Account Details" defaultOpen={false}>
-            <div className="space-y-0">
-              <FieldRow label="Account Display Name" value={fmt(cred.account_display_name)} />
-              <FieldRow label="Account ID" value={fmt(cred.account_id)} />
-              <FieldRow label="License Type" value={fmt(cred.license_type)} />
-              <FieldRow label="Plan Tier" value={fmt(cred.plan_tier)} />
-              <FieldRow label="Subscription Start" value={fmtDate(cred.subscription_start)} />
-              <FieldRow label="Subscription End" value={fmtDate(cred.subscription_end)} />
-              <FieldRow label="Auto Renewal" value={fmt(cred.auto_renewal)} />
-              <FieldRow label="Monthly Cost" value={fmtCurrency(cred.monthly_cost)} />
-              <FieldRow label="Billing Cycle" value={fmt(cred.billing_cycle)} />
-              <FieldRow label="Billing Email" value={fmt(cred.billing_email)} />
-              <FieldRow label="Payment Reference" value={fmt(cred.payment_reference)} />
-            </div>
+          <Section title="3. Account Details" open={false}>
+            <FR label="Account Display Name" value={fmt(cred.account_display_name)} />
+            <FR label="Account ID" value={fmt(cred.account_id)} />
+            <FR label="License Type" value={fmt(cred.license_type)} />
+            <FR label="Plan Tier" value={fmt(cred.plan_tier)} />
+            <FR label="Subscription Start" value={fmtDate(cred.subscription_start)} />
+            <FR label="Subscription End" value={fmtDate(cred.subscription_end)} />
+            <FR label="Auto Renewal" value={fmt(cred.auto_renewal)} />
+            <FR label="Monthly Cost" value={fmtCurrency(cred.monthly_cost)} />
+            <FR label="Billing Cycle" value={fmt(cred.billing_cycle)} />
+            <FR label="Billing Email" value={fmt(cred.billing_email)} />
+            <FR label="Payment Reference" value={fmt(cred.payment_reference)} />
           </Section>
 
-          {/* 4. Technical / API */}
-          <Section title="4. Technical / API" defaultOpen={false}>
-            <div className="space-y-3">
-              <FieldRow label="Access Level" value={fmt(cred.access_level)} />
-              <FieldRow
-                label="Linked Credential ID"
-                value={
-                  cred.linked_credential_id ? (
-                    <Link
-                      to={`/credential/${cred.linked_credential_id}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      {cred.linked_credential_id}
-                    </Link>
-                  ) : null
-                }
-              />
-              <div className="grid grid-cols-[180px_1fr] gap-2 py-1.5 border-b border-gray-50 dark:border-gray-700/50">
-                <div className="text-xs font-medium text-gray-400 dark:text-gray-500 pt-0.5">
-                  API Key
-                </div>
-                <MaskedField
-                  label=""
-                  credentialId={cred.credential_id}
-                  field="api_key"
-                  hasValue={cred.has_api_key}
-                />
-              </div>
-              <div className="grid grid-cols-[180px_1fr] gap-2 py-1.5 border-b border-gray-50 dark:border-gray-700/50">
-                <div className="text-xs font-medium text-gray-400 dark:text-gray-500 pt-0.5">
-                  API Secret
-                </div>
-                <MaskedField
-                  label=""
-                  credentialId={cred.credential_id}
-                  field="api_secret"
-                  hasValue={cred.has_api_secret}
-                />
-              </div>
-              <FieldRow label="Client ID" value={fmt(cred.client_id)} />
-              <div className="grid grid-cols-[180px_1fr] gap-2 py-1.5 border-b border-gray-50 dark:border-gray-700/50">
-                <div className="text-xs font-medium text-gray-400 dark:text-gray-500 pt-0.5">
-                  Client Secret
-                </div>
-                <MaskedField
-                  label=""
-                  credentialId={cred.credential_id}
-                  field="client_secret"
-                  hasValue={cred.has_client_secret}
-                />
-              </div>
-              <FieldRow label="Tenant ID (App)" value={fmt(cred.tenant_id_app)} />
-              <FieldRow label="Subscription ID (Azure)" value={fmt(cred.subscription_id_azure)} />
-              <FieldRow label="Server Hostname" value={fmt(cred.server_hostname)} />
-              <FieldRow label="Port" value={fmt(cred.port)} />
-              <FieldRow label="Protocol" value={fmt(cred.protocol)} />
-              <FieldRow label="Database Name" value={fmt(cred.database_name)} />
+          <Section title="4. Technical / API" open={false}>
+            <FR label="Access Level" value={fmt(cred.access_level)} />
+            <FR label="Linked Credential" value={cred.linked_credential_id ? <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)' }}>{cred.linked_credential_id}</Link> : null} />
+            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>API Key</div>
+              <MaskedField label="" credentialId={cred.credential_id} field="api_key" hasValue={cred.has_api_key} />
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>API Secret</div>
+              <MaskedField label="" credentialId={cred.credential_id} field="api_secret" hasValue={cred.has_api_secret} />
+            </div>
+            <FR label="Client ID" value={fmt(cred.client_id)} />
+            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>Client Secret</div>
+              <MaskedField label="" credentialId={cred.credential_id} field="client_secret" hasValue={cred.has_client_secret} />
+            </div>
+            <FR label="Tenant ID (App)" value={fmt(cred.tenant_id_app)} />
+            <FR label="Azure Subscription ID" value={fmt(cred.subscription_id_azure)} />
+            <FR label="Server Hostname" value={fmt(cred.server_hostname)} />
+            <FR label="Port" value={fmt(cred.port)} />
+            <FR label="Protocol" value={fmt(cred.protocol)} />
+            <FR label="Database Name" value={fmt(cred.database_name)} />
           </Section>
 
-          {/* 5. Ownership & Tracking */}
-          <Section title="5. Ownership & Tracking" defaultOpen={false}>
-            <div className="space-y-0">
-              <FieldRow label="Managed By" value={fmt(cred.managed_by)} />
-              <FieldRow label="Managed By Email" value={fmt(cred.managed_by_email)} />
-              <FieldRow label="Created By" value={fmt(cred.created_by)} />
-              <FieldRow label="Created Date" value={fmtDate(cred.created_date)} />
-              <FieldRow label="Last Updated By" value={fmt(cred.last_updated_by)} />
-              <FieldRow label="Last Updated Date" value={fmtDate(cred.last_updated_date)} />
-              <FieldRow label="Last Verified Date" value={fmtDate(cred.last_verified_date)} />
-              <FieldRow label="Last Password Changed" value={fmtDate(cred.last_password_changed)} />
-              <FieldRow
-                label="Password Expiry"
-                value={
-                  cred.password_expiry_date ? (
-                    <span
-                      className={
-                        new Date(cred.password_expiry_date) < new Date()
-                          ? 'text-red-600 dark:text-red-400 font-medium'
-                          : ''
-                      }
-                    >
-                      {fmtDate(cred.password_expiry_date)}
-                    </span>
-                  ) : null
-                }
-              />
-              <FieldRow label="Next Review Date" value={fmtDate(cred.next_review_date)} />
-              <FieldRow
-                label="Tags"
-                value={
-                  cred.tags ? (
-                    <div className="flex flex-wrap gap-1">
-                      {cred.tags.split(',').map((t) => (
-                        <span
-                          key={t.trim()}
-                          className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs"
-                        >
-                          {t.trim()}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null
-                }
-              />
-              <FieldRow label="Notes" value={fmt(cred.notes)} />
-            </div>
+          <Section title="5. Ownership & Tracking" open={false}>
+            <FR label="Managed By" value={fmt(cred.managed_by)} />
+            <FR label="Managed By Email" value={fmt(cred.managed_by_email)} />
+            <FR label="Created By" value={fmt(cred.created_by)} />
+            <FR label="Created Date" value={fmtDate(cred.created_date)} />
+            <FR label="Last Updated By" value={fmt(cred.last_updated_by)} />
+            <FR label="Last Updated" value={fmtDate(cred.last_updated_date)} />
+            <FR label="Last Verified" value={fmtDate(cred.last_verified_date)} />
+            <FR label="Last Password Changed" value={fmtDate(cred.last_password_changed)} />
+            <FR label="Password Expiry" value={cred.password_expiry_date ? (
+              <span style={{ color: new Date(cred.password_expiry_date) < new Date() ? 'var(--danger)' : 'var(--text-1)', fontWeight: new Date(cred.password_expiry_date) < new Date() ? 600 : 400 }}>
+                {fmtDate(cred.password_expiry_date)}
+              </span>
+            ) : null} />
+            <FR label="Next Review" value={fmtDate(cred.next_review_date)} />
+            <FR label="Tags" value={cred.tags ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {cred.tags.split(',').map(t => (
+                  <span key={t.trim()} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '1px 8px', fontSize: 11, color: 'var(--text-2)' }}>{t.trim()}</span>
+                ))}
+              </div>
+            ) : null} />
+            <FR label="Notes" value={fmt(cred.notes)} />
           </Section>
         </div>
       )}
 
-      {activeTab === 'history' && id && <ChangeLogTable credentialId={id} />}
+      {tab === 'history' && id && (
+        <div className="md-card animate-in" style={{ padding: 20 }}>
+          <ChangeLogTable credentialId={id} />
+        </div>
+      )}
     </div>
   )
 }
