@@ -340,6 +340,22 @@
         <div class="field-hint">Application (client) ID of your Azure App Registration</div>
       </div>
 
+      <!-- Auth Client ID (optional – user login via Entra) -->
+      <div class="field">
+        <label for="authClientId">User Login App Client ID</label>
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="authClientId"
+            name="authClientId"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (optional)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="field-hint">Client ID of the <strong>credapp-365-auth</strong> app registration used for Microsoft user login. Leave blank to disable user authentication.</div>
+      </div>
+
       <!-- Client Secret -->
       <div class="field">
         <label for="clientSecret">SharePoint Client Secret <span class="required">*</span></label>
@@ -423,10 +439,11 @@
       try {
         const cfg = await window.credManager.getConfig()
         if (!cfg) return
-        $('tenantId').value    = cfg.tenantId    || ''
-        $('clientId').value    = cfg.clientId    || ''
+        $('tenantId').value     = cfg.tenantId     || ''
+        $('clientId').value     = cfg.clientId     || ''
+        $('authClientId').value = cfg.authClientId || ''
         $('clientSecret').value = cfg.clientSecret || ''
-        $('fileUrl').value     = cfg.fileUrl     || ''
+        $('fileUrl').value      = cfg.fileUrl      || ''
       } catch (_) { /* ignore */ }
     }
     prefill()
@@ -499,6 +516,7 @@
       return {
         tenantId:     $('tenantId').value.trim(),
         clientId:     $('clientId').value.trim(),
+        authClientId: $('authClientId').value.trim(),
         clientSecret: $('clientSecret').value.trim(),
         fileUrl:      $('fileUrl').value.trim(),
       }

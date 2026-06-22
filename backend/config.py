@@ -25,11 +25,17 @@ ENV_PATH: Path = _env_path
 load_dotenv(_env_path, override=False)
 
 # ------------------------------------------------------------------
-# Azure AD / MSAL
+# Azure AD / MSAL – SharePoint daemon (client credentials)
 # ------------------------------------------------------------------
 TENANT_ID: str = os.getenv("SHAREPOINT_TENANT_ID", "")
 CLIENT_ID: str = os.getenv("SHAREPOINT_CLIENT_ID", "")
 CLIENT_SECRET: str = os.getenv("SHAREPOINT_CLIENT_SECRET", "")
+
+# ------------------------------------------------------------------
+# Azure AD – User login (public client / PKCE)
+# Falls back to SHAREPOINT_CLIENT_ID if the same app registration is used.
+# ------------------------------------------------------------------
+AUTH_CLIENT_ID: str = os.getenv("AUTH_CLIENT_ID", "") or CLIENT_ID
 
 # ------------------------------------------------------------------
 # SharePoint file

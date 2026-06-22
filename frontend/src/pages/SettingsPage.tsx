@@ -52,9 +52,10 @@ export default function SettingsPage() {
   const [syncLoading, setSyncLoading] = useState(true)
   const [pushBusy, setPushBusy] = useState(false)
   const [pullBusy, setPullBusy] = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
   const [configLoading, setConfigLoading] = useState(false)
   const [configSaving, setConfigSaving] = useState(false)
-  const [config, setConfig] = useState({ tenantId: '', clientId: '', clientSecret: '', fileUrl: '' })
+  const [config, setConfig] = useState({ tenantId: '', clientId: '', authClientId: '', clientSecret: '', fileUrl: '' })
   const [showSecret, setShowSecret] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('')
 
@@ -87,6 +88,21 @@ export default function SettingsPage() {
       const s = await api.getSyncStatus(); setSyncStatus(s)
     } catch (e) { showToast(e instanceof Error ? e.message : 'Pull failed', 'error') }
     finally { setPullBusy(false) }
+  }
+
+  async function handleResetDb() {
+    const confirmed = window.confirm(
+      'This will DELETE all local credential data and re-pull from SharePoint.\n\n' +
+      'Any unsynced local changes will be lost.\n\nAre you sure?'
+    )
+    if (!confirmed) return
+    setResetBusy(true)
+    try {
+      const r = await api.resetDb()
+      showToast(`Flushed ${r.deleted_credentials} credentials — pulled fresh from SharePoint`, 'success')
+      const s = await api.getSyncStatus(); setSyncStatus(s)
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Reset failed', 'error') }
+    finally { setResetBusy(false) }
   }
 
   async function handleSaveConfig(e: FormEvent) {
@@ -164,8 +180,12 @@ export default function SettingsPage() {
                   <input style={inp} type="text" value={config.tenantId} onChange={e => setConfig(c => ({ ...c, tenantId: e.target.value }))} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                 </div>
                 <div>
-                  <label className="md-label">Client ID (App Registration)</label>
+                  <label className="md-label">SharePoint Client ID</label>
                   <input style={inp} type="text" value={config.clientId} onChange={e => setConfig(c => ({ ...c, clientId: e.target.value }))} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div>
+                  <label className="md-label">User Login App Client ID <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(credapp-365-auth)</span></label>
+                  <input style={inp} type="text" value={config.authClientId} onChange={e => setConfig(c => ({ ...c, authClientId: e.target.value }))} placeholder="Leave blank to disable Microsoft login" />
                 </div>
                 <div>
                   <label className="md-label">Client Secret</label>
@@ -190,6 +210,36 @@ export default function SettingsPage() {
             )}
           </Card>
         )}
+
+        {/* Local DB reset */}
+        <Card title="Local Database" icon="storage">
+          <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 16, lineHeight: 1.6 }}>
+            If the SharePoint Excel file has been rebuilt or replaced and the app is showing stale data,
+            use this to wipe the local cache and pull a fresh copy.
+          </div>
+          <div style={{
+            padding: '12px 14px', borderRadius: 8, marginBottom: 16,
+            background: 'rgba(234,67,53,.06)', border: '1px solid rgba(234,67,53,.2)',
+            fontSize: 13, color: 'var(--text-2)',
+          }}>
+            <span style={{ fontWeight: 600, color: '#ea4335' }}>Warning: </span>
+            Any unsynced local changes will be permanently lost.
+          </div>
+          <button
+            className="md-btn"
+            onClick={handleResetDb}
+            disabled={resetBusy}
+            style={{
+              background: 'rgba(234,67,53,.08)', color: '#ea4335',
+              border: '1px solid rgba(234,67,53,.3)',
+            }}
+          >
+            {resetBusy
+              ? <><span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>Resetting…</>
+              : <><span className="icon icon-sm">delete_sweep</span>Flush Local DB &amp; Re-sync</>
+            }
+          </button>
+        </Card>
 
         {/* Export */}
         <Card title="Data Export" icon="download">

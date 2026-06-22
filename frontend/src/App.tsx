@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import { api } from './lib/api'
+import { AuthProvider, useAuth } from './lib/auth'
+import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import CredentialsPage from './pages/CredentialsPage'
 import CredentialDetailPage from './pages/CredentialDetailPage'
@@ -165,6 +167,93 @@ function HeaderIconBtn({ icon, title, onClick }: { icon: string; title: string; 
   )
 }
 
+// ── User avatar / logout menu ─────────────────────────────────────────────────
+
+const ROLE_COLOR: Record<string, string> = {
+  Admin:   '#4285f4',
+  Editor:  '#34a853',
+  Viewer:  '#fbbc05',
+  Auditor: '#ea4335',
+}
+
+function UserMenu() {
+  const { user, authEnabled, logout } = useAuth()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  if (!authEnabled || !user) return null
+
+  const initials = (user.name || user.email || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const roleColor = ROLE_COLOR[user.role] || '#666'
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title={`${user.name} (${user.role})`}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7, height: 30,
+          padding: '0 8px', border: '1px solid rgba(255,255,255,.15)',
+          borderRadius: 20, background: 'rgba(255,255,255,.06)',
+          color: '#fff', cursor: 'pointer', fontSize: 12,
+          fontFamily: "'Google Sans', sans-serif", fontWeight: 600,
+        }}
+      >
+        <span style={{
+          width: 22, height: 22, borderRadius: '50%',
+          background: roleColor, color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 10, fontWeight: 700, flexShrink: 0,
+        }}>{initials}</span>
+        <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {user.name || user.email}
+        </span>
+        <span className="icon icon-sm" style={{ fontSize: 14, opacity: .6 }}>expand_more</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 210, zIndex: 200,
+          background: '#1e2330', border: '1px solid rgba(255,255,255,.1)',
+          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.5)', overflow: 'hidden',
+        }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{user.name}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>{user.email}</div>
+            <div style={{
+              marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+              background: roleColor + '22', color: roleColor, border: `1px solid ${roleColor}44`,
+            }}>
+              <span className="icon icon-sm" style={{ fontSize: 12 }}>shield</span>
+              {user.role}
+            </div>
+          </div>
+          <button
+            onClick={async () => { setOpen(false); await logout() }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 14px', border: 'none', background: 'none',
+              color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <span className="icon icon-sm" style={{ color: '#ea4335' }}>logout</span>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Nav items ─────────────────────────────────────────────────────────────────
 
 const NAV = [
@@ -178,6 +267,15 @@ const NAV = [
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
+  )
+}
+
+function AppInner() {
+  const { user, loading, authEnabled } = useAuth()
   const navigate = useNavigate()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
@@ -190,12 +288,42 @@ export default function App() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
   }, [])
 
+  // Load persisted theme from Electron on mount (overrides localStorage)
+  useEffect(() => {
+    const win = window as Window & { credManager?: { getTheme?: () => Promise<string> } }
+    win.credManager?.getTheme?.().then(t => {
+      if (t === 'dark' || t === 'light') setThemeState(t)
+    }).catch(() => {})
+  }, [])
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     localStorage.setItem('cred-theme', theme)
   }, [theme])
 
-  const toggleTheme = () => setThemeState(t => t === 'light' ? 'dark' : 'light')
+  const toggleTheme = () => {
+    setThemeState(t => {
+      const next = t === 'light' ? 'dark' : 'light'
+      const win = window as Window & { credManager?: { setTheme?: (t: string) => Promise<unknown> } }
+      win.credManager?.setTheme?.(next).catch(() => {})
+      return next
+    })
+  }
+
+  // Gate: loading spinner
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-3)' }}>
+      <span className="icon" style={{ fontSize: 32, animation: 'spin .8s linear infinite' }}>sync</span>
+    </div>
+  )
+
+  // Gate: login required
+  if (authEnabled && !user) return (
+    <ToastContext.Provider value={{ showToast }}>
+      <LoginPage />
+      <ToastContainer toasts={toasts} onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))} />
+    </ToastContext.Provider>
+  )
 
   return (
     <ToastContext.Provider value={{ showToast }}>
@@ -280,6 +408,10 @@ export default function App() {
                 title="Settings"
                 onClick={() => navigate('/settings')}
               />
+
+              {/* Divider + signed-in user pill */}
+              <div style={{ width: 1, height: 18, background: H_DIVIDER, margin: '0 2px' }} />
+              <UserMenu />
 
               {/* Spacer so content clears the Electron window control buttons */}
               {isElectron && <div style={{ width: 138, flexShrink: 0 }} />}

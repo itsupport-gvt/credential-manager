@@ -44,11 +44,11 @@ NOW_STR     = datetime.now().strftime("%Y-%m-%d")
 # ──────────────────────────────────────────────────────────────────────────────
 # STYLE CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
-BLACK   = "1F1F1F"   # near-black for headers / title
-DGREY   = "404040"   # dark grey for sub-headers
+BLACK   = "111111"   # pure dark for headers / title
+DGREY   = "333333"   # very dark grey for sub-headers
 WHITE   = "FFFFFF"
-LTGREY  = "CCCCCC"   # border colour
-TXTCLR  = "1F1F1F"   # body text
+LTGREY  = "EAEAEA"   # minimal border colour
+TXTCLR  = "111111"   # body text
 
 FONT_NAME = "Segoe UI"
 
@@ -117,7 +117,7 @@ def write_info_cell(ws, row, ncols, text):
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
     cell = ws.cell(row=row, column=1)
     cell.value      = text
-    cell.fill       = fl("F2F2F2")
+    cell.fill       = fl("F9F9F9")
     cell.font       = fn("555555", 9, italic=True)
     cell.alignment  = al("left", "center", wrap=True)
     ws.row_dimensions[row].height = 20
@@ -308,44 +308,42 @@ USER_STATUSES = ["Active", "Inactive", "On Leave"]
 # REFERENCE DATA
 # ──────────────────────────────────────────────────────────────────────────────
 CATEGORIES_DATA = [
-    ("CAT-001", "Microsoft 365",       "M365",  "Microsoft 365 tenant and service accounts",
-     "Global Admin; SharePoint Admin; Exchange Admin; Teams Admin; Security & Compliance Admin; Azure AD Admin; Power Platform Admin; Service Account"),
-    ("CAT-002", "Azure",               "AZ",    "Microsoft Azure cloud resources and service principals",
-     "Subscription Owner; Resource Group; Service Principal; App Registration; Storage Account; Key Vault; Virtual Machine; SQL Database; Function App; Logic App"),
-    ("CAT-003", "Domain & DNS",        "DNS",   "Domain registrars, DNS providers and SSL certificates",
-     "Domain Registrar; DNS Provider; SSL Certificate; CDN; Domain Forwarding"),
-    ("CAT-004", "Web Hosting",         "HOST",  "Web hosting control panels and accounts",
-     "cPanel; Plesk; WHM; DirectAdmin; Web Host Login; WordPress Hosting; Reseller Account"),
-    ("CAT-005", "FTP / File Transfer", "FTP",   "FTP, SFTP and file-transfer credentials",
-     "FTP; SFTP; FTPS; WebDAV; S3 Bucket; File Share"),
-    ("CAT-006", "Email System",        "MAIL",  "Email platforms, SMTP relays and mail admin accounts",
-     "Exchange Online; Gmail Workspace; Zoho Mail; SMTP Relay; Outlook; Exchange On-Prem"),
-    ("CAT-007", "Social Media",        "SM",    "Social media platform accounts and business pages",
-     "Facebook Page; Instagram Business; Twitter / X; LinkedIn Company; YouTube Channel; TikTok Business; Pinterest; Snapchat; Reddit"),
-    ("CAT-008", "Marketing Tools",     "MKT",   "Digital marketing, CRM and analytics platforms",
-     "HubSpot; Mailchimp; ActiveCampaign; Klaviyo; Salesforce; Zoho CRM; Buffer; Hootsuite; Canva; Adobe Creative Cloud; Google Analytics; Google Ads; Meta Ads Manager; LinkedIn Ads; SEMrush; Ahrefs"),
-    ("CAT-009", "E-Commerce",          "ECOM",  "Online store and payment processing accounts",
-     "Shopify; WooCommerce; Magento; Stripe; PayPal; Square; Afterpay; Klarna"),
-    ("CAT-010", "Cloud Storage",       "STOR",  "Cloud storage and file-sharing services",
-     "Dropbox Business; Google Drive; OneDrive; Box; SharePoint; Backblaze; Wasabi"),
-    ("CAT-011", "Development & Code",  "DEV",   "Code repositories, CI/CD and developer platforms",
-     "GitHub Organization; GitLab; Azure DevOps; Bitbucket; Docker Hub; npm; PyPI; AWS Console; Vercel; Netlify; Cloudflare"),
-    ("CAT-012", "Database",            "DB",    "Database server and managed database credentials",
-     "MySQL; PostgreSQL; SQL Server; MongoDB; Firebase; Redis; Supabase; PlanetScale"),
-    ("CAT-013", "VPN & Network",       "VPN",   "VPN, firewall and network appliance access",
-     "VPN Portal; Firewall Admin; Router; Switch; NAS; pfSense; Cisco; Meraki"),
-    ("CAT-014", "CMS / Website",       "CMS",   "Content management systems and website admin panels",
-     "WordPress Admin; Joomla; Drupal; Webflow; Squarespace; Wix; Ghost"),
-    ("CAT-015", "HR & Finance",        "HRFN",  "HR, payroll and accounting platform accounts",
-     "QuickBooks; Xero; Sage; MYOB; ADP; Workday; BambooHR; Employment Hero; Gusto"),
-    ("CAT-016", "Support & Ticketing", "SUPP",  "Helpdesk, ticketing and project management",
-     "Zendesk; Freshdesk; Jira; ServiceNow; Monday.com; Asana; Trello; ClickUp"),
-    ("CAT-017", "Communication",       "COMM",  "Business communication and video conferencing",
-     "Slack; Microsoft Teams; Zoom; Webex; Google Meet; Skype; Discord"),
-    ("CAT-018", "Password Manager",    "PM",    "Password manager vaults and shared accounts",
-     "1Password; Bitwarden; LastPass; Dashlane; Keeper; NordPass"),
-    ("CAT-019", "Other",               "OTH",   "Miscellaneous credentials not in above categories",
-     "General; Misc; Custom"),
+    ("CAT-M365", "Microsoft 365", "M365", "Microsoft 365 tenant and service accounts",
+     "Global Admin; Exchange Admin; SharePoint Admin; Teams Admin; User Account; Mailbox Access (OTP/SSO); Service Account"),
+    ("CAT-CLOUD", "Cloud Infrastructure", "CLOUD", "Amazon Web Services, Microsoft Azure, DigitalOcean and other cloud providers",
+     "AWS Root; AWS IAM User; Azure Portal; Azure Sub Owner; DigitalOcean; Google Cloud Portal; Service Principal"),
+    ("CAT-DNS", "Domain & DNS", "DNS", "Domain registrars, DNS hosting and SSL certificates",
+     "Domain Registrar; DNS Provider; SSL/TLS Certificate; CDN; Domain Forwarding"),
+    ("CAT-HOST", "Web Hosting & Panels", "HOST", "Server control panels, cPanel, WHM, Plesk, and hosting portal access",
+     "cPanel; Plesk; WHM; Web Host Portal; Virtual Private Server (VPS); Managed Hosting"),
+    ("CAT-CMS", "CMS & Websites", "CMS", "Content Management Systems (WordPress, Django, CMS portals) and site admin panels",
+     "WordPress Admin; Django Admin; Shopify Admin; Webflow; Squarespace; Custom CMS"),
+    ("CAT-GOOG", "Google Ecosystem", "GOOG", "Google Search Console, Google Business Profile, Analytics and Google account credentials",
+     "Google Search Console; Google Business Profile (GMB); Google Analytics; Google Tag Manager; Workspace Admin"),
+    ("CAT-DB", "Databases", "DB", "Database administration, SQL Server, Azure SQL, MySQL, and PostgreSQL logins",
+     "Azure SQL; MySQL/MariaDB; PostgreSQL; Microsoft SQL Server; MongoDB; Redis; Database Administrator"),
+    ("CAT-FTP", "FTP & File Sharing", "FTP", "File transfer protocol (FTP, SFTP) credentials and cloud/network storage vaults",
+     "SFTP; FTP; FTPS; S3 Bucket; WebDAV; Network File Share"),
+    ("CAT-ERP", "ERP & Business Portals", "ERP", "Zoho, Odoo, task workflow portals, and learning platforms",
+     "Zoho Admin; Zoho User; Odoo Admin; Odoo User; ERP Portal; Task Assignment; Workflow Portal"),
+    ("CAT-MKT", "Marketing & Creative", "MKT", "Marketing tools, graphic design, and creative suite applications",
+     "Adobe Creative Cloud; Graphic Design Tool; Email Marketing (Mailchimp); SEO/SEM Tool; Marketing Analytics; Canva"),
+    ("CAT-SOC", "Social Media", "SOC", "Brand social media handles and ad manager accounts",
+     "Facebook/Meta; Instagram; Twitter/X; LinkedIn; YouTube; TikTok; Pinterest"),
+    ("CAT-AI", "AI & Chatbots", "AI", "Artificial Intelligence systems, LLM tools, and AI developer portals",
+     "ChatGPT (OpenAI); Claude (Anthropic); Gemini (Google); Copilot; AI API Key; Custom Chatbot"),
+    ("CAT-HR", "HR & Recruitment", "HR", "HR management systems (HRMS), job portals (Naukri, Indeed), and payroll portal access",
+     "HRMS Portal; Recruitment Portal (Naukri/Indeed); Payroll System; Attendance/Leave System"),
+    ("CAT-FIN", "Finance & Accounting", "FIN", "Accounting softwares (Zoho Admin, Odoo Admin, users, etc.) and invoicing platforms",
+     "Zoho Books/Finance; Odoo Accounting; Accounting Software; Payment Gateway; Billing/Invoice Portal"),
+    ("CAT-WORK", "Workflow & Productivity", "WORK", "Team collaboration, task tracking, and learning portals",
+     "Jira; Monday.com; Asana; Trello; ClickUp; Slack; Microsoft Teams; Learning Portal (Udemy)"),
+    ("CAT-NET", "Network & CCTV", "NET", "Router/switch logins, internal WiFi, and CCTV/NVR surveillance cameras",
+     "WiFi Router/Access Point; Firewall/Switch; CCTV Camera/NVR; Network Attached Storage (NAS); ISP Admin Portal"),
+    ("CAT-TEL", "Telecom & Utility", "TEL", "Network service providers, postpaid sim portals, and broadband logins",
+     "Postpaid SIM Portal; WiFi Service Provider; Telecom Login; Broadband Portal"),
+    ("CAT-OTH", "Other", "OTH", "Miscellaneous credentials not covered in above categories",
+     "General; Utility; Hardware/IoT; Security Vault"),
 ]
 
 TENANT_DATA = [
@@ -401,7 +399,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0002","GBP","Gravity Business Partners",
-        "Azure","Subscription Owner","Azure - GBP Production Subscription",
+        "Cloud Infrastructure","Azure Sub Owner","Azure - GBP Production Subscription",
         "https://portal.azure.com","Production","Active","Critical",
         "admin@gravity-bp.com","(uses M365 SSO)","","",
         "Yes","Authenticator App","Microsoft Authenticator","1Password Vault - GBP","SSO via Microsoft 365 account",
@@ -418,7 +416,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0003","GBP","Gravity Business Partners",
-        "Social Media","Facebook Page","Facebook - Gravity Business Partners Page",
+        "Social Media","Facebook/Meta","Facebook - Gravity Business Partners Page",
         "https://www.facebook.com/gravitybp","Production","Active","High",
         "social@gravity-bp.com","Fb@GBP2024!","info@gravity-bp.com","+971 XX XXX XXXX",
         "Yes","SMS","","Recovery codes in 1Password","",
@@ -450,7 +448,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0005","TAS","TechAlpha Solutions",
-        "Web Hosting","cPanel","SiteGround cPanel - techalpha.ae",
+        "Web Hosting & Panels","cPanel","SiteGround cPanel - techalpha.ae",
         "https://my.siteground.com","Production","Active","High",
         "admin@techalpha.ae","SG!cP@nel2024","it@techalpha.ae","",
         "Yes","Authenticator App","Google Authenticator","1Password - TAS","",
@@ -466,7 +464,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0006","TAS","TechAlpha Solutions",
-        "FTP / File Transfer","SFTP","SFTP - techalpha.ae Production Server",
+        "FTP & File Sharing","SFTP","SFTP - techalpha.ae Production Server",
         "","Production","Active","High",
         "sftp_tas","SFTP!TAS2024@#","","",
         "No","None","","","Key-based auth also available - key stored in 1Password",
@@ -482,7 +480,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0007","BKR","Bakery King LLC",
-        "Email System","Gmail Workspace","Google Workspace - bakeryking.com",
+        "Google Ecosystem","Workspace Admin","Google Workspace - bakeryking.com",
         "https://admin.google.com","Production","Active","Critical",
         "admin@bakeryking.com","BK@GW2024Admin!","sara@bakeryking.com","+971 55 XXX XXXX",
         "Yes","Authenticator App","Google Authenticator","Stored with client","",
@@ -498,7 +496,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0008","BKR","Bakery King LLC",
-        "Social Media","Instagram Business","Instagram - @bakerykinguae",
+        "Social Media","Instagram","Instagram - @bakerykinguae",
         "https://www.instagram.com/bakerykinguae","Production","Active","High",
         "social@bakeryking.com","IG!BKR2024#","sara@bakeryking.com","+971 55 XXX XXXX",
         "Yes","Authenticator App","Google Authenticator","With client","",
@@ -531,7 +529,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0010","REA","RealEstate Pro PJSC",
-        "Marketing Tools","Mailchimp","Mailchimp - RealEstate Pro Newsletter",
+        "Marketing & Creative","Email Marketing (Mailchimp)","Mailchimp - RealEstate Pro Newsletter",
         "https://mailchimp.com","Production","Active","Medium",
         "marketing@realestatepro.ae","MC!REA2024Mkt","khalid@realestatepro.ae","",
         "Yes","Email","","Recovery via account email","",
@@ -547,7 +545,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0011","REA","RealEstate Pro PJSC",
-        "Marketing Tools","HubSpot","HubSpot CRM - RealEstate Pro",
+        "Marketing & Creative","SEO/SEM Tool","HubSpot CRM - RealEstate Pro",
         "https://app.hubspot.com","Production","Active","High",
         "crm@realestatepro.ae","HS!REA2024CRM","khalid@realestatepro.ae","",
         "Yes","Email","","Recovery via account email","",
@@ -563,7 +561,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0012","GBP","Gravity Business Partners",
-        "Social Media","LinkedIn Company","LinkedIn - Gravity Business Partners Page",
+        "Social Media","LinkedIn","LinkedIn - Gravity Business Partners Page",
         "https://www.linkedin.com/company/gravitybp","Production","Active","High",
         "info@gravity-bp.com","(uses personal M365 account)","","",
         "Yes","Authenticator App","Microsoft Authenticator","","Page admin via personal LinkedIn of Dev Mukherjee",
@@ -579,7 +577,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0013","TAS","TechAlpha Solutions",
-        "CMS / Website","WordPress Admin","WordPress - techalpha.ae",
+        "CMS & Websites","WordPress Admin","WordPress - techalpha.ae",
         "https://techalpha.ae/wp-admin","Production","Active","High",
         "admin","WP!TAS2024@Admin","it@techalpha.ae","",
         "No","None","","","Wordfence active. Limit login attempts on.",
@@ -595,7 +593,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0014","MED","MediCare Clinics Group",
-        "Email System","Zoho Mail","Zoho Mail - medicareclinics.ae",
+        "ERP & Business Portals","Zoho Admin","Zoho Mail - medicareclinics.ae",
         "https://mail.zoho.com/zm/","Production","Inactive","Medium",
         "postmaster@medicareclinics.ae","ZM!MED2023Old","admin@medicareclinics.ae","",
         "No","None","","","Migrated to M365 Exchange. Kept for archival only.",
@@ -611,7 +609,7 @@ SAMPLE_CREDENTIALS = [
     ),
     make_cred(
         "CRED-2024-0015","GBP","Gravity Business Partners",
-        "Development & Code","GitHub Organization","GitHub - GravityBP Org",
+        "Other","General","GitHub - GravityBP Org",
         "https://github.com/gravitybp","Production","Active","High",
         "dev@gravity-bp.com","(OAuth/SSO)","info@gravity-bp.com","",
         "Yes","Authenticator App","GitHub Authenticator","1Password - GBP",
@@ -1103,34 +1101,34 @@ def main():
 
     views = [
         ("VIEW_M365_Admin",
-         "VIEW — Microsoft 365 Admin Credentials",
+         "VIEW — Microsoft 365 Credentials",
          '=IFERROR(FILTER(tblCredentials,tblCredentials[Category]="Microsoft 365","No Microsoft 365 credentials found."),"Error loading data.")',
-         "Microsoft 365 credentials across all tenants"),
+         "Microsoft 365 admin and generic accounts"),
 
-        ("VIEW_Azure",
-         "VIEW — Azure Credentials",
-         '=IFERROR(FILTER(tblCredentials,tblCredentials[Category]="Azure","No Azure credentials found."),"Error loading data.")',
-         "Azure credentials across all tenants"),
+        ("VIEW_Cloud_Infra",
+         "VIEW — Cloud Infrastructure Credentials",
+         '=IFERROR(FILTER(tblCredentials,tblCredentials[Category]="Cloud Infrastructure","No Cloud Infrastructure credentials found."),"Error loading data.")',
+         "AWS | Azure | DigitalOcean portals"),
 
         ("VIEW_Domains_FTP",
          "VIEW — Domain, Hosting & FTP Credentials",
-         '=IFERROR(FILTER(tblCredentials,(tblCredentials[Category]="Domain & DNS")+(tblCredentials[Category]="Web Hosting")+(tblCredentials[Category]="FTP / File Transfer"),"No records found."),"Error loading data.")',
-         "Domain & DNS | Web Hosting | FTP / File Transfer"),
+         '=IFERROR(FILTER(tblCredentials,(tblCredentials[Category]="Domain & DNS")+(tblCredentials[Category]="Web Hosting & Panels")+(tblCredentials[Category]="FTP & File Sharing"),"No records found."),"Error loading data.")',
+         "Domain & DNS | Web Hosting & Panels | FTP & File Sharing"),
 
         ("VIEW_Social_Media",
          "VIEW — Social Media Credentials",
          '=IFERROR(FILTER(tblCredentials,tblCredentials[Category]="Social Media","No Social Media credentials found."),"Error loading data.")',
-         "Social Media credentials across all tenants"),
+         "Social Media handles and brand channels"),
 
-        ("VIEW_Marketing",
-         "VIEW — Marketing Tools Credentials",
-         '=IFERROR(FILTER(tblCredentials,(tblCredentials[Category]="Marketing Tools")+(tblCredentials[Category]="E-Commerce"),"No records found."),"Error loading data.")',
-         "Marketing Tools | E-Commerce"),
+        ("VIEW_Marketing_Creative",
+         "VIEW — Marketing & Creative Credentials",
+         '=IFERROR(FILTER(tblCredentials,tblCredentials[Category]="Marketing & Creative","No Marketing & Creative credentials found."),"Error loading data.")',
+         "Marketing tools, design, and creative suite logins"),
 
-        ("VIEW_Email",
-         "VIEW — Email System Credentials",
-         '=IFERROR(FILTER(tblCredentials,tblCredentials[Category]="Email System","No Email System credentials found."),"Error loading data.")',
-         "Email System credentials across all tenants"),
+        ("VIEW_ERP_Finance",
+         "VIEW — ERP & Finance Credentials",
+         '=IFERROR(FILTER(tblCredentials,(tblCredentials[Category]="ERP & Business Portals")+(tblCredentials[Category]="Finance & Accounting"),"No ERP & Finance credentials found."),"Error loading data.")',
+         "Zoho | Odoo | Accounting | Invoicing | Payments"),
 
         ("VIEW_Expiring_90d",
          "VIEW — Credentials Expiring Within 90 Days",

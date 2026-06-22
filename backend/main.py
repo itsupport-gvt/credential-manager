@@ -35,6 +35,7 @@ from routes.changelog import router as changelog_router
 from routes.credentials import router as credentials_router
 from routes.stats import router as stats_router
 from routes.tenants import router as tenants_router, seed_categories
+from routes.users import router as users_router
 from services.sync_service import sync_from_excel, sync_status, sync_to_excel
 
 logging.basicConfig(
@@ -43,7 +44,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
@@ -178,6 +179,7 @@ app.include_router(credentials_router)
 app.include_router(tenants_router)
 app.include_router(changelog_router)
 app.include_router(stats_router)
+app.include_router(users_router)
 
 # ---------------------------------------------------------------------------
 # Sync endpoints
@@ -239,6 +241,42 @@ def sync_status_endpoint() -> SyncStatusResponse:
         pending_logs=pending_logs,
         last_sync=sync_status.get("last_sync"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Admin: reset local DB and re-pull from SharePoint
+# ---------------------------------------------------------------------------
+
+@app.post("/api/admin/reset-db", tags=["admin"])
+def reset_database() -> dict:
+    """
+    Wipe all local credential and changelog rows, then re-pull fresh data from
+    the SharePoint Excel file. Useful when the source sheet has been rebuilt
+    and the local cache is stale.
+    """
+    from auth import require_admin
+    from models_db import DBCredential, DBChangeLog
+    db = SessionLocal()
+    try:
+        deleted_creds = db.query(DBCredential).count()
+        deleted_logs  = db.query(DBChangeLog).count()
+        db.query(DBChangeLog).delete()
+        db.query(DBCredential).delete()
+        db.commit()
+        result = sync_from_excel(db)
+        return {
+            "status": "ok",
+            "deleted_credentials": deleted_creds,
+            "deleted_logs": deleted_logs,
+            "synced": result,
+        }
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "detail": str(exc)},
+        )
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------

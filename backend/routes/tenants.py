@@ -17,57 +17,64 @@ from models_db import DBCategory, DBTenant, DBUser
 
 # ── Category seed data (mirrors Excel Categories sheet) ─────────────────────
 _CATEGORY_SEED = [
-    ("CAT-001","Microsoft 365","M365","Microsoft 365 tenant and service accounts",
-     "Global Admin;SharePoint Admin;Exchange Admin;Teams Admin;Security & Compliance Admin;Azure AD Admin;Power Platform Admin;Service Account"),
-    ("CAT-002","Azure","AZ","Microsoft Azure cloud resources and service principals",
-     "Subscription Owner;Resource Group;Service Principal;App Registration;Storage Account;Key Vault;Virtual Machine;SQL Database;Function App;Logic App"),
-    ("CAT-003","Domain & DNS","DNS","Domain registrars, DNS providers and SSL certificates",
-     "Domain Registrar;DNS Provider;SSL Certificate;CDN;Domain Forwarding"),
-    ("CAT-004","Web Hosting","HOST","Web hosting control panels and accounts",
-     "cPanel;Plesk;WHM;DirectAdmin;Web Host Login;WordPress Hosting;Reseller Account"),
-    ("CAT-005","FTP / File Transfer","FTP","FTP, SFTP and file-transfer credentials",
-     "FTP;SFTP;FTPS;WebDAV;S3 Bucket;File Share"),
-    ("CAT-006","Email System","MAIL","Email platforms, SMTP relays and mail admin accounts",
-     "Exchange Online;Gmail Workspace;Zoho Mail;SMTP Relay;Outlook;Exchange On-Prem"),
-    ("CAT-007","Social Media","SM","Social media platform accounts and business pages",
-     "Facebook Page;Instagram Business;Twitter / X;LinkedIn Company;YouTube Channel;TikTok Business;Pinterest;Snapchat;Reddit"),
-    ("CAT-008","Marketing Tools","MKT","Digital marketing, CRM and analytics platforms",
-     "HubSpot;Mailchimp;ActiveCampaign;Klaviyo;Salesforce;Zoho CRM;Buffer;Hootsuite;Canva;Adobe Creative Cloud;Google Analytics;Google Ads;Meta Ads Manager;LinkedIn Ads;SEMrush;Ahrefs"),
-    ("CAT-009","E-Commerce","ECOM","Online store and payment processing accounts",
-     "Shopify;WooCommerce;Magento;Stripe;PayPal;Square;Afterpay;Klarna"),
-    ("CAT-010","Cloud Storage","STOR","Cloud storage and file-sharing services",
-     "Dropbox Business;Google Drive;OneDrive;Box;SharePoint;Backblaze;Wasabi"),
-    ("CAT-011","Development & Code","DEV","Code repositories, CI/CD and developer platforms",
-     "GitHub Organization;GitLab;Azure DevOps;Bitbucket;Docker Hub;npm;PyPI;AWS Console;Vercel;Netlify;Cloudflare"),
-    ("CAT-012","Database","DB","Database server and managed database credentials",
-     "MySQL;PostgreSQL;SQL Server;MongoDB;Firebase;Redis;Supabase;PlanetScale"),
-    ("CAT-013","VPN & Network","VPN","VPN, firewall and network appliance access",
-     "VPN Portal;Firewall Admin;Router;Switch;NAS;pfSense;Cisco;Meraki"),
-    ("CAT-014","CMS / Website","CMS","Content management systems and website admin panels",
-     "WordPress Admin;Joomla;Drupal;Webflow;Squarespace;Wix;Ghost"),
-    ("CAT-015","HR & Finance","HRFN","HR, payroll and accounting platform accounts",
-     "QuickBooks;Xero;Sage;MYOB;ADP;Workday;BambooHR;Employment Hero;Gusto"),
-    ("CAT-016","Support & Ticketing","SUPP","Helpdesk, ticketing and project management",
-     "Zendesk;Freshdesk;Jira;ServiceNow;Monday.com;Asana;Trello;ClickUp"),
-    ("CAT-017","Communication","COMM","Business communication and video conferencing",
-     "Slack;Microsoft Teams;Zoom;Webex;Google Meet;Skype;Discord"),
-    ("CAT-018","Password Manager","PM","Password manager vaults and shared accounts",
-     "1Password;Bitwarden;LastPass;Dashlane;Keeper;NordPass"),
-    ("CAT-019","Other","OTH","Miscellaneous credentials not in above categories",
-     "General;Misc;Custom"),
+    ("CAT-M365", "Microsoft 365", "M365", "Microsoft 365 tenant and service accounts",
+     "Global Admin;Exchange Admin;SharePoint Admin;Teams Admin;User Account;Mailbox Access (OTP/SSO);Service Account"),
+    ("CAT-CLOUD", "Cloud Infrastructure", "CLOUD", "Amazon Web Services, Microsoft Azure, DigitalOcean and other cloud providers",
+     "AWS Root;AWS IAM User;Azure Portal;Azure Sub Owner;DigitalOcean;Google Cloud Portal;Service Principal"),
+    ("CAT-DNS", "Domain & DNS", "DNS", "Domain registrars, DNS hosting and SSL certificates",
+     "Domain Registrar;DNS Provider;SSL/TLS Certificate;CDN;Domain Forwarding"),
+    ("CAT-HOST", "Web Hosting & Panels", "HOST", "Server control panels, cPanel, WHM, Plesk, and hosting portal access",
+     "cPanel;Plesk;WHM;Web Host Portal;Virtual Private Server (VPS);Managed Hosting"),
+    ("CAT-CMS", "CMS & Websites", "CMS", "Content Management Systems (WordPress, Django, CMS portals) and site admin panels",
+     "WordPress Admin;Django Admin;Shopify Admin;Webflow;Squarespace;Custom CMS"),
+    ("CAT-GOOG", "Google Ecosystem", "GOOG", "Google Search Console, Google Business Profile, Analytics and Google account credentials",
+     "Google Search Console;Google Business Profile (GMB);Google Analytics;Google Tag Manager;Workspace Admin"),
+    ("CAT-DB", "Databases", "DB", "Database administration, SQL Server, Azure SQL, MySQL, and PostgreSQL logins",
+     "Azure SQL;MySQL/MariaDB;PostgreSQL;Microsoft SQL Server;MongoDB;Redis;Database Administrator"),
+    ("CAT-FTP", "FTP & File Sharing", "FTP", "File transfer protocol (FTP, SFTP) credentials and cloud/network storage vaults",
+     "SFTP;FTP;FTPS;S3 Bucket;WebDAV;Network File Share"),
+    ("CAT-ERP", "ERP & Business Portals", "ERP", "Zoho, Odoo, task workflow portals, and learning platforms",
+     "Zoho Admin;Zoho User;Odoo Admin;Odoo User;ERP Portal;Task Assignment;Workflow Portal"),
+    ("CAT-MKT", "Marketing & Creative", "MKT", "Marketing tools, graphic design, and creative suite applications",
+     "Adobe Creative Cloud;Graphic Design Tool;Email Marketing (Mailchimp);SEO/SEM Tool;Marketing Analytics;Canva"),
+    ("CAT-SOC", "Social Media", "SOC", "Brand social media handles and ad manager accounts",
+     "Facebook/Meta;Instagram;Twitter/X;LinkedIn;YouTube;TikTok;Pinterest"),
+    ("CAT-AI", "AI & Chatbots", "AI", "Artificial Intelligence systems, LLM tools, and AI developer portals",
+     "ChatGPT (OpenAI);Claude (Anthropic);Gemini (Google);Copilot;AI API Key;Custom Chatbot"),
+    ("CAT-HR", "HR & Recruitment", "HR", "HR management systems (HRMS), job portals (Naukri, Indeed), and payroll portal access",
+     "HRMS Portal;Recruitment Portal (Naukri/Indeed);Payroll System;Attendance/Leave System"),
+    ("CAT-FIN", "Finance & Accounting", "FIN", "Accounting softwares (Zoho Admin, Odoo Admin, users, etc.) and invoicing platforms",
+     "Zoho Books/Finance;Odoo Accounting;Accounting Software;Payment Gateway;Billing/Invoice Portal"),
+    ("CAT-WORK", "Workflow & Productivity", "WORK", "Team collaboration, task tracking, and learning portals",
+     "Jira;Monday.com;Asana;Trello;ClickUp;Slack;Microsoft Teams;Learning Portal (Udemy)"),
+    ("CAT-NET", "Network & CCTV", "NET", "Router/switch logins, internal WiFi, and CCTV/NVR surveillance cameras",
+     "WiFi Router/Access Point;Firewall/Switch;CCTV Camera/NVR;Network Attached Storage (NAS);ISP Admin Portal"),
+    ("CAT-TEL", "Telecom & Utility", "TEL", "Network service providers, postpaid sim portals, and broadband logins",
+     "Postpaid SIM Portal;WiFi Service Provider;Telecom Login;Broadband Portal"),
+    ("CAT-OTH", "Other", "OTH", "Miscellaneous credentials not covered in above categories",
+     "General;Utility;Hardware/IoT;Security Vault"),
 ]
 
 
 def seed_categories(db: Session) -> None:
-    """Populate the categories table if it is empty."""
-    if db.query(DBCategory).count() > 0:
-        return
+    """Populate or update the categories table to match _CATEGORY_SEED."""
+    seed_map = {cat[0]: cat for cat in _CATEGORY_SEED}
     for cat_id, name, code, desc, subs in _CATEGORY_SEED:
-        db.add(DBCategory(
-            category_id=cat_id, category_name=name, category_code=code,
-            description=desc, subcategories=subs,
-        ))
+        existing = db.query(DBCategory).filter(DBCategory.category_id == cat_id).first()
+        if existing:
+            existing.category_name = name
+            existing.category_code = code
+            existing.description = desc
+            existing.subcategories = subs
+        else:
+            db.add(DBCategory(
+                category_id=cat_id, category_name=name, category_code=code,
+                description=desc, subcategories=subs,
+            ))
+    # Delete categories that are no longer in seed list
+    db.query(DBCategory).filter(DBCategory.category_id.notin_(list(seed_map.keys()))).delete(synchronize_session=False)
     db.commit()
+
 
 router = APIRouter(prefix="/api", tags=["tenants"])
 

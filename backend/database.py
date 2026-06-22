@@ -66,13 +66,15 @@ def create_tables(eng=None) -> None:
 # for columns that may have been added after the initial schema.
 _MIGRATIONS: dict[str, list[tuple[str, str, str]]] = {
     "credentials": [
-        # Any new columns added in future versions go here.
-        # e.g. ("new_column", "VARCHAR", "DEFAULT ''"),
+        ("credential_type",       "VARCHAR",  "DEFAULT 'Password'"),
+        ("authorized_users_json", "TEXT",     "DEFAULT '[]'"),
+        ("mfa_methods_json",      "TEXT",     "DEFAULT '[]'"),
     ],
     "change_log": [],
     "tenants": [],
     "categories": [],
     "users": [],
+    "auth_users": [],  # new table – created by create_all, no extra columns needed yet
 }
 
 

@@ -31,11 +31,22 @@ contextBridge.exposeInMainWorld('credManager', {
   // Show the native About dialog
   showAbout: () => ipcRenderer.invoke('show-about'),
 
-  // Switch color theme: 'dark' | 'light' | 'system'
+  // Switch color theme: 'dark' | 'light'
   setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+  getTheme: ()      => ipcRenderer.invoke('get-theme'),
 
   // Per-launch secret token — injected into every API request header
   getAppToken: () => ipcRenderer.invoke('get-app-token'),
+
+  // Microsoft Entra ID login / logout
+  msLogin:    () => ipcRenderer.invoke('ms-login'),
+  msLogout:   () => ipcRenderer.invoke('ms-logout'),
+
+  // Current signed-in user ({ name, email, oid, token }) or null
+  getMsUser:  () => ipcRenderer.invoke('get-ms-user'),
+
+  // Fresh ID token string (does silent acquire / refresh) or null
+  getMsToken: () => ipcRenderer.invoke('get-ms-token'),
 
   // Listen for update events pushed from main process
   onUpdateAvailable: (cb) => {

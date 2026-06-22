@@ -6,10 +6,11 @@ import type {
   Category,
   Stats,
   SyncStatus,
+  AuthUser,
 } from './types'
 
 // ---------------------------------------------------------------------------
-// Per-launch app token
+// Per-launch app token (Electron IPC secret)
 // ---------------------------------------------------------------------------
 
 let _cachedToken: string | null | undefined = undefined
@@ -25,11 +26,51 @@ async function getAppToken(): Promise<string | null> {
   return _cachedToken
 }
 
+// ---------------------------------------------------------------------------
+// Microsoft ID token (refreshed on each call via silent MSAL acquire)
+// Cached for 50 minutes; cleared on 401 so the next call triggers a refresh.
+// ---------------------------------------------------------------------------
+
+let _msToken: string | null = null
+let _msTokenAt = 0
+const _MS_TTL  = 50 * 60 * 1000  // 50 min (ID tokens last 60 min)
+
+export function clearMsToken() {
+  _msToken = null
+  _msTokenAt = 0
+}
+
+async function getMsToken(): Promise<string | null> {
+  if (_msToken && Date.now() - _msTokenAt < _MS_TTL) return _msToken
+  try {
+    const win = window as Window & { credManager?: { getMsToken?: () => Promise<string | null> } }
+    const t = (await win.credManager?.getMsToken?.()) ?? null
+    _msToken   = t
+    _msTokenAt = Date.now()
+  } catch {
+    _msToken = null
+  }
+  return _msToken
+}
+
+// ---------------------------------------------------------------------------
+// Core fetch wrapper
+// ---------------------------------------------------------------------------
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAppToken()
+  const appToken = await getAppToken()
+  const msToken  = await getMsToken()
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) }
-  if (token) headers['X-App-Token'] = token
+  if (appToken) headers['X-App-Token']    = appToken
+  if (msToken)  headers['Authorization']  = `Bearer ${msToken}`
+
   const res = await fetch(path, { ...init, headers })
+
+  if (res.status === 401) {
+    // Token may have expired; clear cache so next call re-fetches
+    clearMsToken()
+  }
+
   if (!res.ok) {
     let message = `HTTP ${res.status}: ${res.statusText}`
     try {
@@ -128,4 +169,13 @@ export const api = {
     req<{ credentials: number; logs: number }>('/api/sync/pull', { method: 'POST' }),
 
   getSyncStatus: () => req<SyncStatus>('/api/sync/status'),
+
+  // Admin
+  resetDb: () => req<{ status: string; deleted_credentials: number; deleted_logs: number; synced: unknown }>('/api/admin/reset-db', { method: 'POST' }),
+
+  // Auth
+  getMe: () => req<{ auth_enabled: boolean; user: { oid: string; name: string; email: string; role: string } | null }>('/api/auth/me'),
+  listAuthUsers: () => req<AuthUser[]>('/api/auth/users'),
+  setUserStatus: (oid: string, is_active: boolean) =>
+    req<AuthUser>(`/api/auth/users/${oid}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active }) }),
 }

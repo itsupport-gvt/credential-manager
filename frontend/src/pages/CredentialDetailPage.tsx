@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import type { Credential, ChangeLogItem } from '../lib/types'
+import type { Credential, ChangeLogItem, AuthorizedUser, MfaMethod } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { MaskedField } from '../components/MaskedField'
@@ -194,6 +194,9 @@ export default function CredentialDetailPage() {
         <div className="animate-in">
           <Section title="1. Core Identity">
             <FR label="Credential ID" value={fmt(cred.credential_id)} />
+            <FR label="Credential Type" value={cred.credential_type ? (
+              <span style={{ background: 'var(--primary-bg)', color: 'var(--primary)', padding: '2px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>{cred.credential_type}</span>
+            ) : null} />
             <FR label="Tenant" value={fmt(cred.tenant_name || cred.tenant_code)} />
             <FR label="Category" value={fmt(cred.category)} />
             <FR label="Subcategory" value={fmt(cred.subcategory)} />
@@ -212,14 +215,68 @@ export default function CredentialDetailPage() {
             </div>
             <FR label="Recovery Email" value={fmt(cred.recovery_email)} />
             <FR label="Recovery Phone" value={fmt(cred.recovery_phone)} />
-            <FR label="MFA Enabled" value={cred.mfa_enabled === 'Yes' ? <span style={{ color: 'var(--success)', fontWeight: 600 }}>Yes</span> : 'No'} />
-            <FR label="MFA Type" value={fmt(cred.mfa_type)} />
-            <FR label="MFA App Name" value={fmt(cred.mfa_app_name)} />
             <FR label="Backup Codes" value={fmt(cred.backup_codes_location)} />
             <FR label="Security Notes" value={fmt(cred.security_notes)} />
           </Section>
 
-          <Section title="3. Account Details" open={false}>
+          {/* MFA Methods */}
+          <Section title="3. MFA Methods" open={(cred.mfa_methods?.length ?? 0) > 0}>
+            {(!cred.mfa_methods || cred.mfa_methods.length === 0) ? (
+              <div style={{ color: 'var(--text-3)', fontSize: 13, padding: '8px 0' }}>No MFA methods configured</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {(cred.mfa_methods as MfaMethod[]).map((m, i) => (
+                  <div key={i} style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span className="icon icon-sm" style={{ color: 'var(--primary)' }}>security</span>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-1)' }}>{m.type || 'MFA'}</span>
+                      {m.app_name && <span style={{ fontSize: 12, color: 'var(--text-2)' }}>· {m.app_name}</span>}
+                    </div>
+                    {m.person_name && <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Person: {m.person_name}{m.person_email ? ` (${m.person_email})` : ''}</div>}
+                    {m.phone && <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Phone: {m.phone}</div>}
+                    {m.notes && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4, fontStyle: 'italic' }}>{m.notes}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Authorized Users */}
+          <Section title="4. Authorized Users" open={(cred.authorized_users?.length ?? 0) > 0}>
+            {(!cred.authorized_users || cred.authorized_users.length === 0) ? (
+              <div style={{ color: 'var(--text-3)', fontSize: 13, padding: '8px 0' }}>No authorized users listed</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface-2)' }}>
+                      {['Name', 'Email', 'Access Level', 'Notes'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(cred.authorized_users as AuthorizedUser[]).map((u, i) => (
+                      <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 500 }}>{u.name || '—'}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-2)' }}>{u.email || '—'}</td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <span style={{
+                            background: u.access_level === 'Admin' ? 'var(--danger-bg)' : u.access_level === 'Write' ? 'var(--warn-bg)' : 'var(--primary-bg)',
+                            color: u.access_level === 'Admin' ? 'var(--danger)' : u.access_level === 'Write' ? '#b06000' : 'var(--primary)',
+                            padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          }}>{u.access_level || 'Read'}</span>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--text-3)', fontSize: 12 }}>{u.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+
+          <Section title="5. Account Details" open={false}>
             <FR label="Account Display Name" value={fmt(cred.account_display_name)} />
             <FR label="Account ID" value={fmt(cred.account_id)} />
             <FR label="License Type" value={fmt(cred.license_type)} />
@@ -233,7 +290,7 @@ export default function CredentialDetailPage() {
             <FR label="Payment Reference" value={fmt(cred.payment_reference)} />
           </Section>
 
-          <Section title="4. Technical / API" open={false}>
+          <Section title="6. Technical / API" open={false}>
             <FR label="Access Level" value={fmt(cred.access_level)} />
             <FR label="Linked Credential" value={cred.linked_credential_id ? <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)' }}>{cred.linked_credential_id}</Link> : null} />
             <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
@@ -257,7 +314,7 @@ export default function CredentialDetailPage() {
             <FR label="Database Name" value={fmt(cred.database_name)} />
           </Section>
 
-          <Section title="5. Ownership & Tracking" open={false}>
+          <Section title="7. Ownership & Tracking" open={false}>
             <FR label="Managed By" value={fmt(cred.managed_by)} />
             <FR label="Managed By Email" value={fmt(cred.managed_by_email)} />
             <FR label="Created By" value={fmt(cred.created_by)} />

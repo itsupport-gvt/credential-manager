@@ -1,16 +1,21 @@
 import { useEffect, useState, type ChangeEvent, type ReactNode, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
-import type { Tenant, Category } from '../lib/types'
+import type { Tenant, Category, AuthorizedUser, MfaMethod } from '../lib/types'
 
-const STATUSES    = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
-const PRIORITIES  = ['Critical', 'High', 'Medium', 'Low']
-const ENVIRONMENTS = ['Production', 'Staging', 'Development', 'Testing', 'DR']
-const MFA_TYPES   = ['TOTP', 'SMS', 'Email', 'Hardware Key', 'Push', 'Biometric', 'Other']
-const ACCESS_LEVELS = ['Admin', 'Owner', 'Member', 'Viewer', 'Read-Only', 'Service Account']
-const PROTOCOLS   = ['HTTPS', 'HTTP', 'SFTP', 'FTP', 'SSH', 'RDP', 'MySQL', 'PostgreSQL', 'MSSQL', 'Other']
-const BILLING_CYCLES = ['Monthly', 'Annual', 'Quarterly', 'Bi-Annual', 'One-Time']
-const AUTO_RENEWALS  = ['Yes', 'No', 'Unknown']
+const STATUSES         = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
+const PRIORITIES       = ['Critical', 'High', 'Medium', 'Low']
+const ENVIRONMENTS     = ['Production', 'Staging', 'Development', 'Testing', 'DR']
+const CRED_TYPES       = ['Password', 'OTP-Only', 'API Key', 'OAuth2', 'Database', 'SSH', 'License Key', 'Certificate', 'Custom']
+const MFA_TYPES        = ['TOTP', 'SMS', 'Email', 'Hardware Key', 'Passkey', 'Push', 'Biometric', 'Other']
+const MFA_ACCESS_LEVELS = ['Read', 'Write', 'Admin']
+const ACCESS_LEVELS    = ['Admin', 'Owner', 'Member', 'Viewer', 'Read-Only', 'Service Account']
+const PROTOCOLS        = ['HTTPS', 'HTTP', 'SFTP', 'FTP', 'SSH', 'RDP', 'MySQL', 'PostgreSQL', 'MSSQL', 'Other']
+const BILLING_CYCLES   = ['Monthly', 'Annual', 'Quarterly', 'Bi-Annual', 'One-Time']
+const AUTO_RENEWALS    = ['Yes', 'No', 'Unknown']
+
+const BLANK_MFA: MfaMethod = { type: 'TOTP', app_name: '', person_name: '', person_email: '', phone: '', notes: '' }
+const BLANK_USER: AuthorizedUser = { name: '', email: '', access_level: 'Read', notes: '' }
 
 const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text-1)', outline: 'none', fontFamily: 'Roboto, sans-serif' }
 
@@ -64,8 +69,9 @@ function Sec({ title, defaultOpen = true, children }: { title: string; defaultOp
 interface FS {
   tenant_code: string; tenant_name: string; category: string; subcategory: string
   service_name: string; service_url: string; environment: string; status: string; priority: string
+  credential_type: string
   username_email: string; password: string; recovery_email: string; recovery_phone: string
-  mfa_enabled: string; mfa_type: string; mfa_app_name: string; backup_codes_location: string; security_notes: string
+  backup_codes_location: string; security_notes: string
   account_display_name: string; account_id: string; license_type: string; plan_tier: string
   subscription_start: string; subscription_end: string; auto_renewal: string; monthly_cost: string
   billing_cycle: string; billing_email: string; payment_reference: string
@@ -79,7 +85,8 @@ const today = () => new Date().toISOString().split('T')[0]
 
 const EMPTY: FS = {
   tenant_code: '', tenant_name: '', category: '', subcategory: '', service_name: '', service_url: '', environment: 'Production', status: 'Active', priority: 'Medium',
-  username_email: '', password: '', recovery_email: '', recovery_phone: '', mfa_enabled: 'No', mfa_type: '', mfa_app_name: '', backup_codes_location: '', security_notes: '',
+  credential_type: 'Password',
+  username_email: '', password: '', recovery_email: '', recovery_phone: '', backup_codes_location: '', security_notes: '',
   account_display_name: '', account_id: '', license_type: '', plan_tier: '', subscription_start: '', subscription_end: '', auto_renewal: 'No', monthly_cost: '', billing_cycle: '', billing_email: '', payment_reference: '',
   access_level: '', linked_credential_id: '', api_key: '', api_secret: '', client_id: '', client_secret: '', tenant_id_app: '', subscription_id_azure: '', server_hostname: '', port: '', protocol: '', database_name: '',
   managed_by: 'Current User', managed_by_email: '', created_by: 'Current User', created_date: today(), tags: '', notes: '',
@@ -92,6 +99,8 @@ export default function NewCredentialPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [mfaMethods, setMfaMethods] = useState<MfaMethod[]>([])
+  const [authUsers, setAuthUsers] = useState<AuthorizedUser[]>([])
 
   useEffect(() => {
     api.listTenants().then(setTenants).catch(() => {})
@@ -123,13 +132,25 @@ export default function NewCredentialPage() {
     e.preventDefault()
     const errs = validate(); if (errs.length) { setErrors(errs); return }
     setErrors([]); setSubmitting(true)
-    const payload: Record<string, unknown> = { ...form, monthly_cost: form.monthly_cost ? parseFloat(form.monthly_cost) : 0 }
+    const payload: Record<string, unknown> = {
+      ...form,
+      monthly_cost: form.monthly_cost ? parseFloat(form.monthly_cost) : 0,
+      authorized_users: authUsers,
+      mfa_methods: mfaMethods,
+    }
     for (const s of ['password', 'api_key', 'api_secret', 'client_secret']) { if (!payload[s]) delete payload[s] }
     try {
       const c = await api.createCredential(payload as Parameters<typeof api.createCredential>[0])
       navigate(`/credential/${c.credential_id}`)
     } catch (err) { setErrors([err instanceof Error ? err.message : 'Failed']) }
     finally { setSubmitting(false) }
+  }
+
+  function updateMfa(i: number, field: keyof MfaMethod, val: string) {
+    setMfaMethods(prev => prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m))
+  }
+  function updateUser(i: number, field: keyof AuthorizedUser, val: string) {
+    setAuthUsers(prev => prev.map((u, idx) => idx === i ? { ...u, [field]: val } : u))
   }
 
   return (
@@ -150,6 +171,7 @@ export default function NewCredentialPage() {
 
       <form onSubmit={handleSubmit}>
         <Sec title="1. Core Identity">
+          <FF label="Credential Type" required><SI name="credential_type" value={form.credential_type} onChange={handleChange} options={CRED_TYPES} /></FF>
           <FF label="Tenant" required>
             <select name="tenant_code" value={form.tenant_code} onChange={handleChange} style={inp}>
               <option value="">Select tenant…</option>
@@ -179,18 +201,67 @@ export default function NewCredentialPage() {
           <FF label="Password"><PI name="password" value={form.password} onChange={handleChange} /></FF>
           <FF label="Recovery Email"><TI name="recovery_email" value={form.recovery_email} onChange={handleChange} type="email" /></FF>
           <FF label="Recovery Phone"><TI name="recovery_phone" value={form.recovery_phone} onChange={handleChange} type="tel" /></FF>
-          <FF label="MFA Enabled"><SI name="mfa_enabled" value={form.mfa_enabled} onChange={handleChange} options={['Yes', 'No']} /></FF>
-          {form.mfa_enabled === 'Yes' && <>
-            <FF label="MFA Type"><SI name="mfa_type" value={form.mfa_type} onChange={handleChange} options={MFA_TYPES} placeholder="Select…" /></FF>
-            <FF label="MFA App Name"><TI name="mfa_app_name" value={form.mfa_app_name} onChange={handleChange} /></FF>
-            <FF label="Backup Codes Location"><TI name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} /></FF>
-          </>}
+          <FF label="Backup Codes Location"><TI name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} /></FF>
           <div style={{ gridColumn: '1 / -1' }}>
             <FF label="Security Notes"><textarea name="security_notes" value={form.security_notes} onChange={handleChange} rows={2} style={{ ...inp, resize: 'vertical' }} /></FF>
           </div>
         </Sec>
 
-        <Sec title="3. Account Details" defaultOpen={false}>
+        {/* MFA Methods */}
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface-2)' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>3. MFA Methods</span>
+            <button type="button" onClick={() => setMfaMethods(prev => [...prev, { ...BLANK_MFA }])} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--primary-bg)', color: 'var(--primary)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+              <span className="icon icon-sm">add</span>Add MFA
+            </button>
+          </div>
+          <div style={{ padding: mfaMethods.length ? '12px 16px' : '0', background: 'var(--surface)' }}>
+            {mfaMethods.length === 0 && <div style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>No MFA methods — click Add MFA to configure</div>}
+            {mfaMethods.map((m, i) => (
+              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 10, position: 'relative' }}>
+                <button type="button" onClick={() => setMfaMethods(prev => prev.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
+                  <span className="icon icon-sm">delete</span>
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <FF label="Type"><select value={m.type} onChange={e => updateMfa(i, 'type', e.target.value)} style={inp}>{MFA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></FF>
+                  <FF label="App Name"><input value={m.app_name} onChange={e => updateMfa(i, 'app_name', e.target.value)} placeholder="e.g. Microsoft Authenticator" style={inp} /></FF>
+                  <FF label="Person Name"><input value={m.person_name} onChange={e => updateMfa(i, 'person_name', e.target.value)} style={inp} /></FF>
+                  <FF label="Person Email"><input type="email" value={m.person_email} onChange={e => updateMfa(i, 'person_email', e.target.value)} style={inp} /></FF>
+                  <FF label="Phone"><input type="tel" value={m.phone} onChange={e => updateMfa(i, 'phone', e.target.value)} style={inp} /></FF>
+                  <FF label="Notes"><input value={m.notes} onChange={e => updateMfa(i, 'notes', e.target.value)} style={inp} /></FF>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Authorized Users */}
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface-2)' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>4. Authorized Users</span>
+            <button type="button" onClick={() => setAuthUsers(prev => [...prev, { ...BLANK_USER }])} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--primary-bg)', color: 'var(--primary)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+              <span className="icon icon-sm">add</span>Add User
+            </button>
+          </div>
+          <div style={{ padding: authUsers.length ? '12px 16px' : '0', background: 'var(--surface)' }}>
+            {authUsers.length === 0 && <div style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>No authorized users — click Add User to configure access</div>}
+            {authUsers.map((u, i) => (
+              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 10, position: 'relative' }}>
+                <button type="button" onClick={() => setAuthUsers(prev => prev.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
+                  <span className="icon icon-sm">delete</span>
+                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <FF label="Name"><input value={u.name} onChange={e => updateUser(i, 'name', e.target.value)} style={inp} /></FF>
+                  <FF label="Email"><input type="email" value={u.email} onChange={e => updateUser(i, 'email', e.target.value)} style={inp} /></FF>
+                  <FF label="Access Level"><select value={u.access_level} onChange={e => updateUser(i, 'access_level', e.target.value)} style={inp}>{MFA_ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select></FF>
+                  <FF label="Notes"><input value={u.notes} onChange={e => updateUser(i, 'notes', e.target.value)} style={inp} /></FF>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Sec title="5. Account Details" defaultOpen={false}>
           <FF label="Account Display Name"><TI name="account_display_name" value={form.account_display_name} onChange={handleChange} /></FF>
           <FF label="Account ID"><TI name="account_id" value={form.account_id} onChange={handleChange} /></FF>
           <FF label="License Type"><TI name="license_type" value={form.license_type} onChange={handleChange} /></FF>
@@ -204,7 +275,7 @@ export default function NewCredentialPage() {
           <FF label="Payment Reference"><TI name="payment_reference" value={form.payment_reference} onChange={handleChange} /></FF>
         </Sec>
 
-        <Sec title="4. Technical / API" defaultOpen={false}>
+        <Sec title="6. Technical / API" defaultOpen={false}>
           <FF label="Access Level"><SI name="access_level" value={form.access_level} onChange={handleChange} options={ACCESS_LEVELS} placeholder="Select…" /></FF>
           <FF label="Linked Credential ID"><TI name="linked_credential_id" value={form.linked_credential_id} onChange={handleChange} /></FF>
           <FF label="API Key"><PI name="api_key" value={form.api_key} onChange={handleChange} /></FF>
@@ -219,7 +290,7 @@ export default function NewCredentialPage() {
           <FF label="Database Name"><TI name="database_name" value={form.database_name} onChange={handleChange} /></FF>
         </Sec>
 
-        <Sec title="5. Ownership & Tracking" defaultOpen={false}>
+        <Sec title="7. Ownership & Tracking" defaultOpen={false}>
           <FF label="Managed By"><TI name="managed_by" value={form.managed_by} onChange={handleChange} /></FF>
           <FF label="Managed By Email"><TI name="managed_by_email" value={form.managed_by_email} onChange={handleChange} type="email" /></FF>
           <FF label="Created By"><TI name="created_by" value={form.created_by} onChange={handleChange} /></FF>

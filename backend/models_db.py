@@ -101,6 +101,15 @@ class DBCredential(Base):
     password_expiry_date = Column(String, default="")
     next_review_date = Column(String, default="")
 
+    # Credential type
+    credential_type = Column(String, default="Password")
+
+    # Authorized users – JSON array of {name, email, access_level, notes}
+    authorized_users_json = Column(Text, default="[]")
+
+    # MFA methods – JSON array of {type, app_name, person_name, person_email, phone, notes}
+    mfa_methods_json = Column(Text, default="[]")
+
     # Misc
     tags = Column(String, default="")
     notes = Column(Text, default="")
@@ -193,3 +202,19 @@ class DBUser(Base):
     status = Column(String, default="Active")
     notes = Column(Text, default="")
     needs_sync = Column(Boolean, default=True)
+
+
+# ---------------------------------------------------------------------------
+# DBAuthUser – tracks users who have logged in via Microsoft Entra ID
+# ---------------------------------------------------------------------------
+
+class DBAuthUser(Base):
+    __tablename__ = "auth_users"
+
+    oid        = Column(String, primary_key=True)   # Entra Object ID (immutable)
+    name       = Column(String, default="")          # Display name from token
+    email      = Column(String, index=True, default="")  # preferred_username from token
+    entra_roles = Column(Text, default="[]")         # JSON array – roles claim from JWT
+    is_active  = Column(Boolean, default=True)
+    last_login = Column(String, default="")          # ISO-8601 UTC
+    created_at = Column(String, default="")

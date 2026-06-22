@@ -41,6 +41,7 @@ sync_status: dict[str, Any] = {
 
 CRED_COLUMN_MAP: dict[str, str] = {
     "CredentialID": "credential_id",
+    "Credential_Type": "credential_type",
     "Tenant_Code": "tenant_code",
     "Tenant_Name": "tenant_name",
     "Category": "category",

@@ -4,9 +4,10 @@ models.py – Pydantic request/response schemas for the Credential Manager API.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -71,11 +72,34 @@ class CredentialResponse(BaseModel):
     last_password_changed: Optional[str] = None
     password_expiry_date: Optional[str] = None
     next_review_date: Optional[str] = None
+    credential_type: Optional[str] = "Password"
+    authorized_users: List[Dict[str, Any]] = []
+    mfa_methods: List[Dict[str, Any]] = []
     tags: Optional[str] = None
     notes: Optional[str] = None
     record_status: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("authorized_users", mode="before")
+    @classmethod
+    def parse_authorized_users(cls, v: Any) -> List[Dict[str, Any]]:
+        if isinstance(v, str):
+            try:
+                return json.loads(v) or []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v or []
+
+    @field_validator("mfa_methods", mode="before")
+    @classmethod
+    def parse_mfa_methods(cls, v: Any) -> List[Dict[str, Any]]:
+        if isinstance(v, str):
+            try:
+                return json.loads(v) or []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v or []
 
 
 class CredentialsPage(BaseModel):
@@ -140,6 +164,9 @@ class CreateCredentialRequest(BaseModel):
     last_password_changed: Optional[str] = ""
     password_expiry_date: Optional[str] = ""
     next_review_date: Optional[str] = ""
+    credential_type: Optional[str] = "Password"
+    authorized_users: List[Dict[str, Any]] = []
+    mfa_methods: List[Dict[str, Any]] = []
     tags: Optional[str] = ""
     notes: Optional[str] = ""
     record_status: Optional[str] = "Active"

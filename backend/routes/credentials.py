@@ -4,6 +4,7 @@ routes/credentials.py – CRUD endpoints for credentials.
 
 from __future__ import annotations
 
+import json
 import math
 import uuid
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 import crypto
+from auth import UserInfo, get_current_user, require_editor, require_viewer, require_admin
 from database import get_db
 from models import (
     CredentialResponse,
@@ -40,7 +42,10 @@ _PLAIN_TO_ENC = {
 
 def _to_response(db_cred: DBCredential) -> CredentialResponse:
     """Convert a DBCredential ORM row to a CredentialResponse (no secrets)."""
-    excluded = {"id", "password_enc", "api_key_enc", "api_secret_enc", "client_secret_enc", "needs_sync"}
+    excluded = {
+        "id", "password_enc", "api_key_enc", "api_secret_enc", "client_secret_enc",
+        "needs_sync", "authorized_users_json", "mfa_methods_json",
+    }
     data = {
         col: getattr(db_cred, col)
         for col in db_cred.__table__.columns.keys()
@@ -50,6 +55,9 @@ def _to_response(db_cred: DBCredential) -> CredentialResponse:
     data["has_api_key"] = bool(db_cred.api_key_enc)
     data["has_api_secret"] = bool(db_cred.api_secret_enc)
     data["has_client_secret"] = bool(db_cred.client_secret_enc)
+    # Map JSON text columns to parsed lists
+    data["authorized_users"] = db_cred.authorized_users_json or "[]"
+    data["mfa_methods"] = db_cred.mfa_methods_json or "[]"
     return CredentialResponse(**data)
 
 
@@ -126,6 +134,7 @@ def list_credentials(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
+    _user: UserInfo = Depends(require_viewer),
 ) -> CredentialsPage:
     query = db.query(DBCredential).filter(DBCredential.record_status == "Active")
 
@@ -164,7 +173,11 @@ def list_credentials(
 
 
 @router.get("/credential/{credential_id}", response_model=CredentialResponse)
-def get_credential(credential_id: str, db: Session = Depends(get_db)) -> CredentialResponse:
+def get_credential(
+    credential_id: str,
+    db: Session = Depends(get_db),
+    _user: UserInfo = Depends(require_viewer),
+) -> CredentialResponse:
     cred = db.query(DBCredential).filter(
         DBCredential.credential_id == credential_id
     ).first()
@@ -177,8 +190,13 @@ def get_credential(credential_id: str, db: Session = Depends(get_db)) -> Credent
 def create_credential(
     body: CreateCredentialRequest,
     db: Session = Depends(get_db),
+    user: UserInfo = Depends(require_editor),
 ) -> CredentialResponse:
     now_str = datetime.now(timezone.utc).isoformat()
+
+    # If authenticated, override created_by / last_updated_by with real identity
+    actor      = user.display_name if user else (body.created_by or "System")
+    actor_email = user.email if user else ""
 
     # Accept an explicit credential_id if supplied in the body via extra fields
     # (CreateCredentialRequest doesn't declare it but callers may pass it)
@@ -234,15 +252,18 @@ def create_credential(
         protocol=body.protocol or "",
         database_name=body.database_name or "",
         managed_by=body.managed_by or "",
-        managed_by_email=body.managed_by_email or "",
-        created_by=body.created_by or "System",
+        managed_by_email=body.managed_by_email or actor_email,
+        created_by=actor,
         created_date=body.created_date or now_str[:10],
-        last_updated_by=body.last_updated_by or "System",
+        last_updated_by=actor,
         last_updated_date=now_str[:10],
         last_verified_date=body.last_verified_date or "",
         last_password_changed=body.last_password_changed or "",
         password_expiry_date=body.password_expiry_date or "",
         next_review_date=body.next_review_date or "",
+        credential_type=body.credential_type or "Password",
+        authorized_users_json=json.dumps(body.authorized_users or []),
+        mfa_methods_json=json.dumps(body.mfa_methods or []),
         tags=body.tags or "",
         notes=body.notes or "",
         record_status=body.record_status or "Active",
@@ -250,7 +271,7 @@ def create_credential(
     )
     db.add(cred)
     db.flush()
-    _log_action(db, cred, "Created", changed_by=cred.created_by or "System")
+    _log_action(db, cred, "Created", changed_by=actor, changed_by_email=actor_email)
     db.commit()
     db.refresh(cred)
     return _to_response(cred)
@@ -261,6 +282,7 @@ def update_credential(
     credential_id: str,
     body: UpdateCredentialRequest,
     db: Session = Depends(get_db),
+    user: UserInfo = Depends(require_editor),
 ) -> CredentialResponse:
     cred = db.query(DBCredential).filter(
         DBCredential.credential_id == credential_id
@@ -282,7 +304,7 @@ def update_credential(
         "tenant_id_app", "subscription_id_azure", "server_hostname", "port", "protocol",
         "database_name", "managed_by", "managed_by_email", "last_updated_by",
         "last_verified_date", "last_password_changed", "password_expiry_date",
-        "next_review_date", "tags", "notes", "record_status",
+        "next_review_date", "credential_type", "tags", "notes", "record_status",
     ]
 
     changed_fields: list[str] = []
@@ -294,6 +316,17 @@ def update_credential(
         if str(old_val) != str(new_val):
             changed_fields.append(field)
             setattr(cred, field, new_val)
+
+    # JSON list fields
+    new_authorized = json.dumps(body.authorized_users or [])
+    if new_authorized != (cred.authorized_users_json or "[]"):
+        changed_fields.append("authorized_users")
+        cred.authorized_users_json = new_authorized
+
+    new_mfa = json.dumps(body.mfa_methods or [])
+    if new_mfa != (cred.mfa_methods_json or "[]"):
+        changed_fields.append("mfa_methods")
+        cred.mfa_methods_json = new_mfa
 
     # Sensitive fields – only re-encrypt if the caller provided a non-empty value
     sensitive_map = {
@@ -311,13 +344,17 @@ def update_credential(
     cred.last_updated_date = now_str[:10]
     cred.needs_sync = True
 
+    actor       = user.display_name if user else (body.last_updated_by or "System")
+    actor_email = user.email        if user else ""
+
     if changed_fields:
         _log_action(
             db,
             cred,
             "Updated",
             field_changed=", ".join(changed_fields),
-            changed_by=body.last_updated_by or "System",
+            changed_by=actor,
+            changed_by_email=actor_email,
         )
 
     db.commit()
@@ -329,6 +366,7 @@ def update_credential(
 def archive_credential(
     credential_id: str,
     db: Session = Depends(get_db),
+    user: UserInfo = Depends(require_admin),
 ) -> CredentialResponse:
     cred = db.query(DBCredential).filter(
         DBCredential.credential_id == credential_id
@@ -336,10 +374,13 @@ def archive_credential(
     if not cred:
         raise HTTPException(status_code=404, detail=f"Credential '{credential_id}' not found.")
 
+    actor       = user.display_name if user else "System"
+    actor_email = user.email        if user else ""
+
     cred.record_status = "Archived"
     cred.status = "Archived"
     cred.needs_sync = True
-    _log_action(db, cred, "Archived")
+    _log_action(db, cred, "Archived", changed_by=actor, changed_by_email=actor_email)
     db.commit()
     db.refresh(cred)
     return _to_response(cred)
@@ -351,6 +392,7 @@ def reveal_field(
     field: str,
     accessed_by: str = Query("System"),
     db: Session = Depends(get_db),
+    user: UserInfo = Depends(require_viewer),
 ) -> dict:
     allowed_fields = {"password", "api_key", "api_secret", "client_secret"}
     if field not in allowed_fields:
@@ -369,12 +411,16 @@ def reveal_field(
     encrypted_val = getattr(cred, enc_field, "") or ""
     decrypted = crypto.decrypt(encrypted_val)
 
+    actor       = user.display_name if user else accessed_by
+    actor_email = user.email        if user else ""
+
     _log_action(
         db,
         cred,
-        "Accessed",
+        "REVEAL",
         field_changed=field,
-        changed_by=accessed_by,
+        changed_by=actor,
+        changed_by_email=actor_email,
     )
     db.commit()
 
@@ -386,6 +432,7 @@ def log_access(
     credential_id: str,
     body: LogAccessBody,
     db: Session = Depends(get_db),
+    user: UserInfo = Depends(require_viewer),
 ) -> dict:
     cred = db.query(DBCredential).filter(
         DBCredential.credential_id == credential_id
@@ -393,11 +440,15 @@ def log_access(
     if not cred:
         raise HTTPException(status_code=404, detail=f"Credential '{credential_id}' not found.")
 
+    actor       = user.display_name if user else body.accessed_by
+    actor_email = user.email        if user else ""
+
     _log_action(
         db,
         cred,
         "Accessed",
-        changed_by=body.accessed_by,
+        changed_by=actor,
+        changed_by_email=actor_email,
         reason=body.reason,
     )
     db.commit()

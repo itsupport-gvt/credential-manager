@@ -4,12 +4,13 @@
 
 'use strict'
 
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, safeStorage } = require('electron')
 const path   = require('path')
 const fs     = require('fs')
 const crypto = require('crypto')
 const { spawn } = require('child_process')
 const net    = require('net')
+const msal   = require('@azure/msal-node')
 
 // electron-updater – graceful fallback in dev where the module may not be installed
 let autoUpdater
@@ -38,6 +39,7 @@ const BACKEND_EXE = IS_DEV
   : path.join(process.resourcesPath, 'backend', 'credential-backend.exe')
 
 const DEFAULT_PORT  = 8100
+const MSAL_CACHE_FILE = path.join(APP_DATA, 'msal-cache.bin')
 
 // Random 256-bit token generated fresh every launch.
 // Passed to the backend process via env var; exposed to the renderer via IPC.
@@ -55,6 +57,14 @@ let backendProcess = null
 let currentPort   = DEFAULT_PORT
 
 // ---------------------------------------------------------------------------
+// MSAL state
+// ---------------------------------------------------------------------------
+
+let _msalApp     = null   // PublicClientApplication
+let _msalAccount = null   // cached AccountInfo
+let _msIdToken   = null   // raw JWT ID token (refreshed on each silent acquire)
+
+// ---------------------------------------------------------------------------
 // Logging helper
 // ---------------------------------------------------------------------------
 
@@ -65,6 +75,124 @@ function log (msg) {
     fs.mkdirSync(APP_DATA, { recursive: true })
     fs.appendFileSync(LOG_FILE, line + '\n')
   } catch (_) { /* best-effort */ }
+}
+
+// ---------------------------------------------------------------------------
+// Log rotation: keep file under ~500 KB by trimming to last 1000 lines
+// ---------------------------------------------------------------------------
+
+function rotateLogs () {
+  try {
+    if (!fs.existsSync(LOG_FILE)) return
+    const stat = fs.statSync(LOG_FILE)
+    if (stat.size < 512 * 1024) return
+    const lines = fs.readFileSync(LOG_FILE, 'utf-8').split('\n')
+    const kept  = lines.slice(-1000).join('\n')
+    fs.writeFileSync(LOG_FILE, kept + '\n', 'utf-8')
+  } catch (_) { /* best-effort */ }
+}
+
+// ---------------------------------------------------------------------------
+// MSAL – Microsoft Entra ID user authentication (PKCE / public client)
+// ---------------------------------------------------------------------------
+
+function _createMsalCachePlugin () {
+  return {
+    beforeCacheAccess: async (ctx) => {
+      try {
+        if (!fs.existsSync(MSAL_CACHE_FILE)) return
+        const raw = fs.readFileSync(MSAL_CACHE_FILE)
+        const text = safeStorage.isEncryptionAvailable()
+          ? safeStorage.decryptString(raw)
+          : raw.toString('utf-8')
+        ctx.tokenCache.deserialize(text)
+      } catch (_) { /* first run / corrupted – start fresh */ }
+    },
+    afterCacheAccess: async (ctx) => {
+      if (!ctx.cacheHasChanged) return
+      try {
+        const text = ctx.tokenCache.serialize()
+        const data = safeStorage.isEncryptionAvailable()
+          ? safeStorage.encryptString(text)
+          : Buffer.from(text, 'utf-8')
+        fs.mkdirSync(APP_DATA, { recursive: true })
+        fs.writeFileSync(MSAL_CACHE_FILE, data)
+      } catch (e) {
+        log('[msal] cache write error: ' + e.message)
+      }
+    },
+  }
+}
+
+function initMsal (config) {
+  if (!config || !config.tenantId || !config.authClientId) {
+    log('[msal] auth not configured – login disabled')
+    _msalApp = null
+    return
+  }
+
+  const msalConfig = {
+    auth: {
+      clientId:  config.authClientId,
+      authority: `https://login.microsoftonline.com/${config.tenantId}`,
+    },
+    cache: { cachePlugin: _createMsalCachePlugin() },
+    system: { loggerOptions: { logLevel: msal.LogLevel.Warning, piiLoggingEnabled: false } },
+  }
+
+  _msalApp = new msal.PublicClientApplication(msalConfig)
+  log('[msal] initialised for tenant ' + config.tenantId)
+}
+
+const _MSAL_SCOPES = ['openid', 'profile', 'email', 'offline_access']
+
+async function msAcquireSilent () {
+  if (!_msalApp) return null
+  try {
+    const accounts = await _msalApp.getTokenCache().getAllAccounts()
+    if (!accounts || accounts.length === 0) return null
+    const account = _msalAccount || accounts[0]
+    const result  = await _msalApp.acquireTokenSilent({ scopes: _MSAL_SCOPES, account })
+    _msalAccount = result.account
+    _msIdToken   = result.idToken
+    return result
+  } catch (e) {
+    log('[msal] silent acquire failed: ' + e.message)
+    return null
+  }
+}
+
+async function msAcquireInteractive () {
+  if (!_msalApp) throw new Error('Auth not configured')
+
+  const result = await _msalApp.acquireTokenInteractive({
+    scopes: _MSAL_SCOPES,
+    redirectUri: 'http://localhost',
+    openBrowser: async (url) => { await shell.openExternal(url) },
+    successTemplate: `
+      <html><body style="font-family:sans-serif;text-align:center;padding:60px">
+        <h2 style="color:#188038">Login successful!</h2>
+        <p>You can close this tab and return to Credential Manager.</p>
+      </body></html>`,
+    errorTemplate: `
+      <html><body style="font-family:sans-serif;text-align:center;padding:60px">
+        <h2 style="color:#d93025">Login failed</h2><p>{error}</p>
+      </body></html>`,
+  })
+
+  _msalAccount = result.account
+  _msIdToken   = result.idToken
+  return result
+}
+
+function _msUserFromResult (result) {
+  if (!result) return null
+  return {
+    name:  result.account.name        || '',
+    email: result.account.username    || '',
+    oid:   result.account.localAccountId || '',
+    token: result.idToken             || '',
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -123,19 +251,50 @@ function writeConfig (data) {
 }
 
 // ---------------------------------------------------------------------------
+// UI settings (theme, etc.) — persisted separately from SharePoint config
+// ---------------------------------------------------------------------------
+
+const UI_SETTINGS_FILE = path.join(APP_DATA, 'ui-settings.json')
+
+function readUiSettings () {
+  try { return JSON.parse(fs.readFileSync(UI_SETTINGS_FILE, 'utf-8')) } catch (_) { return {} }
+}
+
+function writeUiSettings (patch) {
+  const current = readUiSettings()
+  const merged  = { ...current, ...patch }
+  fs.mkdirSync(APP_DATA, { recursive: true })
+  fs.writeFileSync(UI_SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8')
+}
+
+// ---------------------------------------------------------------------------
 // Write .env file that FastAPI/backend reads
 // ---------------------------------------------------------------------------
 
 function writeEnvFile (config, port) {
   const resolvedPort = port || currentPort || DEFAULT_PORT
+
+  // Preserve the ENCRYPTION_KEY that the Python backend generated on first launch.
+  // If we overwrite the file without it, the backend generates a NEW key and all
+  // previously encrypted passwords become undecryptable.
+  let encryptionKey = ''
+  try {
+    const existing = fs.readFileSync(ENV_FILE, 'utf-8')
+    const match = existing.match(/^ENCRYPTION_KEY=(.+)$/m)
+    if (match) encryptionKey = match[1].trim()
+  } catch (_) { /* file doesn't exist yet – key will be auto-generated by backend */ }
+
   const lines = [
     `SHAREPOINT_TENANT_ID=${config.tenantId || ''}`,
     `SHAREPOINT_CLIENT_ID=${config.clientId || ''}`,
     `SHAREPOINT_CLIENT_SECRET=${config.clientSecret || ''}`,
     `SHAREPOINT_FILE_URL=${config.fileUrl || ''}`,
+    `AUTH_CLIENT_ID=${config.authClientId || config.clientId || ''}`,
     `PORT=${resolvedPort}`,
     `CRED_DATA_DIR=${APP_DATA}`,
   ]
+  if (encryptionKey) lines.push(`ENCRYPTION_KEY=${encryptionKey}`)
+
   fs.mkdirSync(APP_DATA, { recursive: true })
   fs.writeFileSync(ENV_FILE, lines.join('\n') + '\n', 'utf-8')
   log('.env written to ' + ENV_FILE)
@@ -298,8 +457,17 @@ function startBackend (port) {
     windowsHide: true,
   })
 
-  backendProcess.stdout.on('data', (d) => log('[backend] ' + d.toString().trim()))
-  backendProcess.stderr.on('data', (d) => log('[backend:err] ' + d.toString().trim()))
+  backendProcess.stdout.on('data', (d) => {
+    const line = d.toString().trim()
+    // Only log warn/error lines – verbose uvicorn access logs are too noisy
+    if (/error|warning|warn|exception|traceback|critical/i.test(line)) {
+      log('[backend] ' + line)
+    }
+  })
+  backendProcess.stderr.on('data', (d) => {
+    const line = d.toString().trim()
+    if (line) log('[backend:err] ' + line)
+  })
   backendProcess.on('exit', (code, signal) => {
     log(`[backend] exited  code=${code} signal=${signal}`)
     backendProcess = null
@@ -332,12 +500,54 @@ ipcMain.handle('get-config', () => readConfig())
 ipcMain.handle('save-config', (_event, data) => {
   writeConfig(data)
   writeEnvFile(data, currentPort)
+  initMsal(data)
   return { ok: true }
+})
+
+// --- Microsoft auth IPC ---
+
+ipcMain.handle('ms-login', async () => {
+  try {
+    const result = await msAcquireInteractive()
+    return { ok: true, user: _msUserFromResult(result) }
+  } catch (e) {
+    log('[msal] interactive login error: ' + e.message)
+    return { ok: false, error: e.message }
+  }
+})
+
+ipcMain.handle('ms-logout', async () => {
+  _msalAccount = null
+  _msIdToken   = null
+  // Clear the persisted cache
+  try { if (fs.existsSync(MSAL_CACHE_FILE)) fs.unlinkSync(MSAL_CACHE_FILE) } catch (_) {}
+  return { ok: true }
+})
+
+ipcMain.handle('get-ms-user', async () => {
+  // Try silent first to populate _msalAccount from cache
+  if (!_msalAccount) {
+    const result = await msAcquireSilent()
+    if (result) return _msUserFromResult(result)
+    return null
+  }
+  return _msIdToken ? {
+    name:  _msalAccount.name        || '',
+    email: _msalAccount.username    || '',
+    oid:   _msalAccount.localAccountId || '',
+    token: _msIdToken,
+  } : null
+})
+
+ipcMain.handle('get-ms-token', async () => {
+  const result = await msAcquireSilent()
+  return result ? result.idToken : null
 })
 
 ipcMain.handle('setup-complete', async (_event, data) => {
   writeConfig(data)
   writeEnvFile(data, currentPort)
+  initMsal(data)
 
   if (setupWindow) { setupWindow.close(); setupWindow = null }
 
@@ -383,9 +593,13 @@ ipcMain.handle('check-for-updates', async () => {
   }
 })
 
-ipcMain.handle('set-theme', (_event, _theme) => {
-  // Header is always dark — overlay stays fixed; theme only affects page content
+ipcMain.handle('set-theme', (_event, theme) => {
+  writeUiSettings({ theme })
   return { ok: true }
+})
+
+ipcMain.handle('get-theme', () => {
+  return readUiSettings().theme || 'light'
 })
 
 ipcMain.handle('show-about', (_event) => {
@@ -482,6 +696,7 @@ app.whenReady().then(async () => {
 
   // Ensure APP_DATA dir exists
   fs.mkdirSync(APP_DATA, { recursive: true })
+  rotateLogs()
   log('=== Credential Manager starting ===')
   log('APP_DATA: ' + APP_DATA)
 
@@ -505,9 +720,13 @@ app.whenReady().then(async () => {
     return
   }
 
-  // Config exists – write env and start backend
+  // Config exists – write env, init MSAL, and start backend
   log('Config found – starting backend')
   writeEnvFile(config, currentPort)
+  initMsal(config)
+
+  // Attempt silent token acquire in the background (populates cache)
+  msAcquireSilent().catch(() => {})
 
   createSplashWindow()
   startBackend(currentPort)

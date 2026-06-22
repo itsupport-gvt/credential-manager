@@ -1,6 +1,23 @@
+export interface AuthorizedUser {
+  name: string;
+  email: string;
+  access_level: string;  // Read | Write | Admin
+  notes: string;
+}
+
+export interface MfaMethod {
+  type: string;           // TOTP | SMS | Email | Hardware Key | Passkey
+  app_name: string;
+  person_name: string;
+  person_email: string;
+  phone: string;
+  notes: string;
+}
+
 export interface Credential {
   id: number;
   credential_id: string;
+  credential_type: string;  // Password | OTP-Only | API Key | OAuth2 | Database | SSH | License Key | Certificate | Custom
   tenant_code: string;
   tenant_name: string;
   category: string;
@@ -55,6 +72,8 @@ export interface Credential {
   has_api_key: boolean;
   has_api_secret: boolean;
   has_client_secret: boolean;
+  authorized_users: AuthorizedUser[];
+  mfa_methods: MfaMethod[];
 }
 
 export interface CredentialsPage {
@@ -132,4 +151,15 @@ export interface SyncStatus {
   pending_credentials: number;
   pending_logs: number;
   last_sync: string | null;
+}
+
+export interface AuthUser {
+  oid: string;
+  name: string;
+  email: string;
+  entra_roles: string[];
+  effective_role: string;
+  is_active: boolean;
+  last_login: string;
+  created_at: string;
 }
