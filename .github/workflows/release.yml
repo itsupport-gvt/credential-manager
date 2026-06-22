@@ -118,7 +118,7 @@ jobs:
         working-directory: electron
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'   # no code-signing certificate
           WIN_CSC_KEY_PASSWORD: ''
 
