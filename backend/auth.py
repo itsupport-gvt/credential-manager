@@ -189,6 +189,23 @@ def get_current_user(
 
 
 # ---------------------------------------------------------------------------
+# Optional dependency (used by /api/auth/me — never raises, returns None)
+# ---------------------------------------------------------------------------
+
+def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> Optional[UserInfo]:
+    """Like get_current_user but returns None instead of raising 401 when no/bad token."""
+    if not AUTH_ENABLED or not credentials:
+        return None
+    try:
+        return get_current_user(credentials, db)
+    except HTTPException:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Role-guard dependencies
 # ---------------------------------------------------------------------------
 

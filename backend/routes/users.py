@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from auth import AUTH_ENABLED, ALL_ROLES, UserInfo, get_current_user, require_admin
+from auth import AUTH_ENABLED, ALL_ROLES, UserInfo, get_current_user, get_optional_user, require_admin
 from database import get_db
 from models_db import DBAuthUser
 
@@ -68,21 +68,17 @@ def _row_to_out(row: DBAuthUser) -> AuthUserOut:
 
 @router.get("/me")
 def get_me(
-    user: Optional[UserInfo] = Depends(get_current_user),
+    user: Optional[UserInfo] = Depends(get_optional_user),
 ) -> dict:
-    """Return current user identity, role, and whether auth is enabled."""
-    if not AUTH_ENABLED:
-        return {"auth_enabled": False, "user": None}
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    """Return auth_enabled flag and current user. Never raises — safe to call without a token."""
     return {
-        "auth_enabled": True,
+        "auth_enabled": AUTH_ENABLED,
         "user": {
             "oid":   user.oid,
             "name":  user.name,
             "email": user.email,
             "role":  user.role,
-        },
+        } if user else None,
     }
 
 

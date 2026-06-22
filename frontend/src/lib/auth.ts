@@ -140,12 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await bridge().msLogout?.()
     clearMsToken()
     setUser(null)
-    setAuthEnabled(false)
-    // Re-check (auth may still be enabled, just no user now)
-    const me = await fetchMe()
-    setAuthEnabled(me === null && authEnabled)
-    setUser(null)
-  }, [fetchMe, authEnabled])
+    // Re-fetch me: returns {auth_enabled: true, user: null} → shows login screen
+    await fetchMe()
+  }, [fetchMe])
 
   return createElement(
     AuthContext.Provider,
