@@ -476,19 +476,22 @@ function startBackend (port) {
 
 function killBackend () {
   if (!backendProcess) return
-  try {
-    backendProcess.kill('SIGTERM')
-  } catch (_) { /* already dead */ }
-
-  // Windows fallback: taskkill by PID
-  if (process.platform === 'win32' && backendProcess.pid) {
-    try {
-      spawn('taskkill', ['/PID', String(backendProcess.pid), '/F', '/T'], {
-        windowsHide: true, detached: true,
-      }).unref()
-    } catch (_) { /* best effort */ }
-  }
+  const pid = backendProcess.pid
   backendProcess = null
+  if (!pid) return
+
+  if (process.platform === 'win32') {
+    // SIGTERM is ignored by Windows processes; use taskkill synchronously
+    // /T kills the entire process tree (handles PyInstaller's child processes)
+    try {
+      require('child_process').spawnSync(
+        'taskkill', ['/PID', String(pid), '/F', '/T'],
+        { windowsHide: true }
+      )
+    } catch (_) { /* already dead */ }
+  } else {
+    try { process.kill(pid, 'SIGTERM') } catch (_) { /* already dead */ }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -776,3 +779,6 @@ app.on('before-quit', () => {
   log('=== before-quit: killing backend ===')
   killBackend()
 })
+
+// Safety net: kill backend if the Node process itself exits (crash, SIGINT, etc.)
+process.on('exit', killBackend)
