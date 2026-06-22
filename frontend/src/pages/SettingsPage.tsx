@@ -7,8 +7,8 @@ declare global {
   interface Window {
     credManager?: {
       getAppToken:    () => Promise<string>
-      getConfig:      () => Promise<{ tenantId: string; clientId: string; clientSecret: string; fileUrl: string }>
-      saveConfig:     (config: { tenantId: string; clientId: string; clientSecret: string; fileUrl: string }) => Promise<void>
+      getConfig:      () => Promise<{ tenantId: string; clientId: string; authClientId?: string; clientSecret: string; fileUrl: string }>
+      saveConfig:     (config: { tenantId: string; clientId: string; authClientId?: string; clientSecret: string; fileUrl: string }) => Promise<void>
       getAppVersion:  () => Promise<string>
       setTheme:       (theme: string) => Promise<{ ok: boolean }>
       openSettings:   () => Promise<{ ok: boolean }>
@@ -63,7 +63,7 @@ export default function SettingsPage() {
     api.getSyncStatus().then(setSyncStatus).catch(() => {}).finally(() => setSyncLoading(false))
     if (isElectron && window.credManager) {
       setConfigLoading(true)
-      window.credManager.getConfig().then(setConfig).catch(() => {}).finally(() => setConfigLoading(false))
+      window.credManager.getConfig().then(cfg => setConfig({ authClientId: '', ...cfg })).catch(() => {}).finally(() => setConfigLoading(false))
       window.credManager.getAppVersion().then(setAppVersion).catch(() => setAppVersion('Unknown'))
     } else {
       setAppVersion('Web mode')
