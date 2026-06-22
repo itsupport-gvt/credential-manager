@@ -6,11 +6,13 @@ import { useToast } from '../App'
 declare global {
   interface Window {
     credManager?: {
-      getAppToken: () => Promise<string>
-      getConfig: () => Promise<{ tenantId: string; clientId: string; clientSecret: string; fileUrl: string }>
-      saveConfig: (config: { tenantId: string; clientId: string; clientSecret: string; fileUrl: string }) => Promise<void>
-      getAppVersion: () => string
-      setTheme: (theme: 'light' | 'dark') => void
+      getAppToken:    () => Promise<string>
+      getConfig:      () => Promise<{ tenantId: string; clientId: string; clientSecret: string; fileUrl: string }>
+      saveConfig:     (config: { tenantId: string; clientId: string; clientSecret: string; fileUrl: string }) => Promise<void>
+      getAppVersion:  () => Promise<string>
+      setTheme:       (theme: string) => Promise<{ ok: boolean }>
+      openSettings:   () => Promise<{ ok: boolean }>
+      checkForUpdates:() => Promise<{ ok: boolean; error?: string }>
     }
   }
 }
@@ -54,12 +56,16 @@ export default function SettingsPage() {
   const [configSaving, setConfigSaving] = useState(false)
   const [config, setConfig] = useState({ tenantId: '', clientId: '', clientSecret: '', fileUrl: '' })
   const [showSecret, setShowSecret] = useState(false)
+  const [appVersion, setAppVersion] = useState<string>('')
 
   useEffect(() => {
     api.getSyncStatus().then(setSyncStatus).catch(() => {}).finally(() => setSyncLoading(false))
     if (isElectron && window.credManager) {
       setConfigLoading(true)
       window.credManager.getConfig().then(setConfig).catch(() => {}).finally(() => setConfigLoading(false))
+      window.credManager.getAppVersion().then(setAppVersion).catch(() => setAppVersion('Unknown'))
+    } else {
+      setAppVersion('Web mode')
     }
   }, [])
 
@@ -92,6 +98,15 @@ export default function SettingsPage() {
       showToast('Configuration saved', 'success')
     } catch (err) { showToast(err instanceof Error ? err.message : 'Save failed', 'error') }
     finally { setConfigSaving(false) }
+  }
+
+  async function handleCheckUpdates() {
+    if (!isElectron || !window.credManager) return
+    try {
+      const r = await window.credManager.checkForUpdates()
+      if (r.ok) showToast('Checking for updates…', 'info')
+      else showToast(r.error || 'Update check failed', 'error')
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Update check failed', 'error') }
   }
 
   return (
@@ -181,28 +196,38 @@ export default function SettingsPage() {
           <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 14 }}>
             Export the complete change log as a CSV file.
           </div>
-          <a href={api.exportChangeLogUrl()} download className="md-btn md-btn-outlined" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+          <a href="/api/changelog/export" download="changelog.csv" className="md-btn md-btn-outlined" style={{ display: 'inline-flex', textDecoration: 'none' }}>
             <span className="icon icon-sm">table_view</span>Export Change Log CSV
           </a>
         </Card>
 
         {/* App Info */}
         <Card title="Application" icon="info">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-            <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Version</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', fontFamily: 'monospace' }}>
-              {isElectron && window.credManager?.getAppVersion ? window.credManager.getAppVersion() : 'Web mode'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-            <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Built by</span>
-            <span style={{ fontSize: 14, color: 'var(--text-1)' }}>Gravity Business Partners</span>
-          </div>
-          {!isElectron && (
-            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '8px 12px', borderRadius: 8 }}>
-              Running in browser mode. Electron-specific features (configuration editor, native theme) are not available.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Version</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', fontFamily: 'monospace' }}>
+                {appVersion || '…'}
+              </span>
             </div>
-          )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Built by</span>
+              <span style={{ fontSize: 14, color: 'var(--text-1)' }}>Gravity Business Partners</span>
+            </div>
+            {isElectron && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Updates</span>
+                <button onClick={handleCheckUpdates} className="md-btn md-btn-tonal" style={{ padding: '4px 14px', fontSize: 13 }}>
+                  <span className="icon icon-sm">system_update</span>Check for Updates
+                </button>
+              </div>
+            )}
+            {!isElectron && (
+              <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-3)', background: 'var(--surface-2)', padding: '8px 12px', borderRadius: 8 }}>
+                Running in browser mode. Electron-specific features (configuration editor, native theme) are not available.
+              </div>
+            )}
+          </div>
         </Card>
       </div>
     </div>

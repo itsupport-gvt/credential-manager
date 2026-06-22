@@ -11,6 +11,10 @@ import TenantsPage from './pages/TenantsPage'
 import CategoriesPage from './pages/CategoriesPage'
 import SettingsPage from './pages/SettingsPage'
 
+// ── Electron detection ───────────────────────────────────────────────────────
+
+const isElectron = typeof window !== 'undefined' && !!(window as Window & { credManager?: unknown }).credManager
+
 // ── Toast system ─────────────────────────────────────────────────────────────
 
 type ToastType = 'success' | 'error' | 'info'
@@ -141,6 +145,9 @@ const NAV: { to: string; end?: boolean; label: string; icon: string }[] = [
 
 export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
+    (localStorage.getItem('cred-theme') as 'light' | 'dark') || 'light'
+  )
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++toastCounter
@@ -148,11 +155,20 @@ export default function App() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
   }, [])
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    localStorage.setItem('cred-theme', theme)
+    const w = window as Window & { credManager?: { setTheme?: (t: string) => void } }
+    w.credManager?.setTheme?.(theme)
+  }, [theme])
+
+  const toggleTheme = () => setThemeState(t => t === 'light' ? 'dark' : 'light')
+
   return (
     <ToastContext.Provider value={{ showToast }}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Top app bar */}
-        <header style={{
+        <header className="app-header" style={{
           position: 'sticky', top: 0, zIndex: 50,
           background: 'var(--surface)', borderBottom: '1px solid var(--border)',
           boxShadow: 'var(--shadow-1)',
@@ -160,13 +176,11 @@ export default function App() {
           <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 0, height: 60 }}>
             {/* Brand */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 32, flexShrink: 0 }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: 10,
-                background: 'linear-gradient(135deg, var(--primary) 0%, #0d47a1 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span className="icon icon-sm" style={{ color: '#fff' }}>lock</span>
-              </div>
+              <img
+                src="/assets/cred_manager.svg"
+                alt="CredManager"
+                style={{ width: 34, height: 34, borderRadius: 8 }}
+              />
               <div>
                 <div style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700, fontSize: 15, color: 'var(--text-1)', lineHeight: 1.2 }}>CredManager</div>
                 <div style={{ fontSize: 10, color: 'var(--text-3)', letterSpacing: '.5px', textTransform: 'uppercase' }}>Gravity BP</div>
@@ -195,6 +209,26 @@ export default function App() {
             {/* Actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <SyncDropdown showToast={showToast} />
+
+              {/* Theme toggle */}
+              <button
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 34, height: 34, borderRadius: 17,
+                  background: 'none', border: '1px solid var(--border)',
+                  cursor: 'pointer', color: 'var(--text-2)',
+                  transition: 'background .15s, color .15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text-1)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-2)' }}
+              >
+                <span className="icon icon-sm">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+              </button>
+
+              {/* Spacer so content never overlaps Electron window controls */}
+              {isElectron && <div style={{ width: 8 }} />}
             </div>
           </div>
         </header>

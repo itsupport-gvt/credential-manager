@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons+Round');
 @import "tailwindcss";
 
-/* ── Design Tokens ─────────────────────────────────────────────── */
+/* ── Design Tokens – Light ──────────────────────────────────────── */
 :root {
   --bg:         #f8f9fa;
   --surface:    #ffffff;
@@ -29,6 +29,30 @@
   --radius-lg:  16px;
 }
 
+/* ── Design Tokens – Dark ───────────────────────────────────────── */
+html.dark {
+  --bg:         #0f1117;
+  --surface:    #1a1d23;
+  --surface-2:  #252830;
+  --border:     #30333d;
+  --primary:    #82b4ff;
+  --primary-dk: #6ea3ff;
+  --primary-bg: #1a2744;
+  --on-primary: #00174a;
+  --text-1:     #e8eaed;
+  --text-2:     #9aa0a6;
+  --text-3:     #5f6368;
+  --success:    #34a853;
+  --success-bg: #052211;
+  --warn:       #fbb01b;
+  --warn-bg:    #251900;
+  --danger:     #f28b82;
+  --danger-bg:  #2d0a09;
+  --shadow-1:   0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+  --shadow-2:   0 2px 6px rgba(0,0,0,.4), 0 1px 4px rgba(0,0,0,.3);
+  --shadow-3:   0 4px 12px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.25);
+}
+
 /* ── Base ───────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; padding: 0; }
@@ -40,6 +64,14 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Electron drag regions ──────────────────────────────────────── */
+.app-header { -webkit-app-region: drag; }
+.app-header a,
+.app-header button,
+.app-header input,
+.app-header select,
+.app-header [role="button"] { -webkit-app-region: no-drag; }
 
 /* ── Material Utility Classes ───────────────────────────────────── */
 @layer utilities {
@@ -93,14 +125,14 @@ body {
     background: var(--primary-bg);
     color: var(--primary);
   }
-  .md-btn-tonal:hover:not(:disabled) { background: #d2e3fc; }
+  .md-btn-tonal:hover:not(:disabled) { background: var(--primary-bg); filter: brightness(.95); }
 
   .md-btn-danger {
     background: var(--danger-bg);
     color: var(--danger);
-    border: 1px solid #f5c6c3;
+    border: 1px solid rgba(217,48,37,.25);
   }
-  .md-btn-danger:hover:not(:disabled) { background: #f8d7d5; }
+  .md-btn-danger:hover:not(:disabled) { filter: brightness(.95); }
 
   .md-btn-neutral {
     background: var(--surface-2);
@@ -119,6 +151,7 @@ body {
     font-weight: 500;
     border: 1px solid var(--border);
     background: var(--surface);
+    color: var(--text-2);
   }
 
   .md-input {
@@ -167,6 +200,23 @@ body {
     margin-bottom: 12px;
   }
 
+  /* ── Badges ─────────────────────────────────────────────────────── */
+  .badge-active,
+  .badge-warn,
+  .badge-neutral,
+  .badge-danger,
+  .badge-purple,
+  .badge-blue {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    white-space: nowrap;
+  }
+
   .badge-active  { background: var(--success-bg); color: var(--success);  }
   .badge-warn    { background: var(--warn-bg);    color: #b06000;         }
   .badge-neutral { background: var(--surface-2);  color: var(--text-2);   }
@@ -205,7 +255,7 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #bdbdbd; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 
 /* ── Autofill ───────────────────────────────────────────────────── */
 input:-webkit-autofill, input:-webkit-autofill:focus {
@@ -214,6 +264,7 @@ input:-webkit-autofill, input:-webkit-autofill:focus {
 }
 
 /* ── Animations ─────────────────────────────────────────────────── */
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes fadeIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 .animate-in { animation: fadeIn .25s ease forwards; }

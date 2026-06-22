@@ -214,9 +214,9 @@ function createMainWindow (port) {
     show:   false,
     titleBarStyle:    'hidden',
     titleBarOverlay:  {
-      color:       nativeTheme.shouldUseDarkColors ? '#1f2937' : '#ffffff',
-      symbolColor: nativeTheme.shouldUseDarkColors ? '#e2e8f0' : '#111827',
-      height: 32,
+      color:       '#ffffff',
+      symbolColor: '#202124',
+      height:      60,
     },
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
@@ -384,13 +384,13 @@ ipcMain.handle('check-for-updates', async () => {
 })
 
 ipcMain.handle('set-theme', (_event, theme) => {
-  // theme: 'dark' | 'light' | 'system'
-  nativeTheme.themeSource = theme
+  // theme: 'dark' | 'light'
+  const dark = theme === 'dark'
   if (mainWindow) {
-    const dark = nativeTheme.shouldUseDarkColors
     mainWindow.setTitleBarOverlay({
-      color:       dark ? '#1f2937' : '#ffffff',
-      symbolColor: dark ? '#e2e8f0' : '#111827',
+      color:       dark ? '#1a1d23' : '#ffffff',
+      symbolColor: dark ? '#e8eaed' : '#202124',
+      height:      60,
     })
   }
   return { ok: true }
