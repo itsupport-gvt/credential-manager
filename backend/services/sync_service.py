@@ -547,6 +547,9 @@ def sync_to_excel(db: Session) -> dict[str, int]:
             for cred in pending_creds:
                 row_dict: dict[str, Any] = {}
                 for header in headers:
+                    if header == "Authorized_Users":
+                        # Serialized separately below
+                        continue
                     db_field = CRED_COLUMN_MAP.get(header)
                     if db_field is None:
                         row_dict[header] = ""
@@ -558,6 +561,18 @@ def sync_to_excel(db: Session) -> dict[str, int]:
                     else:
                         val = getattr(cred, db_field, "")
                         row_dict[header] = "" if val is None else str(val) if not isinstance(val, (int, float)) else val
+
+                # Serialize authorized_users as a human-readable string if column exists
+                if "Authorized_Users" in headers:
+                    try:
+                        import json as _json
+                        au_list = _json.loads(cred.authorized_users_json or "[]")
+                        row_dict["Authorized_Users"] = "; ".join(
+                            f"{u.get('name', '')} <{u.get('email', '')}> ({u.get('access_level', 'Read')})"
+                            for u in au_list if u.get("email")
+                        )
+                    except Exception:
+                        row_dict["Authorized_Users"] = ""
 
                 if cred.credential_id in excel_index:
                     graph.update_table_row(

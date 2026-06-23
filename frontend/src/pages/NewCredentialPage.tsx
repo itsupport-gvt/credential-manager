@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { AutoInput } from '../components/AutoInput'
+import { AuthorizedUsersEditor } from '../components/AuthorizedUsersEditor'
 import type { Tenant, Category, AuthorizedUser, MfaMethod } from '../lib/types'
 
 const STATUSES         = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
@@ -10,14 +11,12 @@ const PRIORITIES       = ['Critical', 'High', 'Medium', 'Low']
 const ENVIRONMENTS     = ['Production', 'Staging', 'Development', 'Testing', 'DR']
 const CRED_TYPES       = ['Password', 'OTP-Only', 'API Key', 'OAuth2', 'Database', 'SSH', 'License Key', 'Certificate', 'Custom']
 const MFA_TYPES        = ['TOTP', 'SMS', 'Email', 'Hardware Key', 'Passkey', 'Push', 'Biometric', 'Other']
-const MFA_ACCESS_LEVELS = ['Read', 'Write', 'Admin']
 const ACCESS_LEVELS    = ['Admin', 'Owner', 'Member', 'Viewer', 'Read-Only', 'Service Account']
 const PROTOCOLS        = ['HTTPS', 'HTTP', 'SFTP', 'FTP', 'SSH', 'RDP', 'MySQL', 'PostgreSQL', 'MSSQL', 'Other']
 const BILLING_CYCLES   = ['Monthly', 'Annual', 'Quarterly', 'Bi-Annual', 'One-Time']
 const AUTO_RENEWALS    = ['Yes', 'No', 'Unknown']
 
 const BLANK_MFA: MfaMethod = { type: 'TOTP', app_name: '', person_name: '', person_email: '', phone: '', notes: '' }
-const BLANK_USER: AuthorizedUser = { name: '', email: '', access_level: 'Read', notes: '' }
 
 const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text-1)', outline: 'none', fontFamily: 'Roboto, sans-serif' }
 
@@ -172,9 +171,6 @@ export default function NewCredentialPage() {
   function updateMfa(i: number, field: keyof MfaMethod, val: string) {
     setMfaMethods(prev => prev.map((m, idx) => idx === i ? { ...m, [field]: val } : m))
   }
-  function updateUser(i: number, field: keyof AuthorizedUser, val: string) {
-    setAuthUsers(prev => prev.map((u, idx) => idx === i ? { ...u, [field]: val } : u))
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 80 }}>
@@ -266,27 +262,11 @@ export default function NewCredentialPage() {
 
         {/* Authorized Users */}
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
-          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface-2)' }}>
+          <div style={{ padding: '12px 16px', background: 'var(--surface-2)' }}>
             <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>4. Authorized Users</span>
-            <button type="button" onClick={() => setAuthUsers(prev => [...prev, { ...BLANK_USER }])} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--primary-bg)', color: 'var(--primary)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
-              <span className="icon icon-sm">add</span>Add User
-            </button>
           </div>
-          <div style={{ padding: authUsers.length ? '12px 16px' : '0', background: 'var(--surface)' }}>
-            {authUsers.length === 0 && <div style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>No authorized users — click Add User to configure access</div>}
-            {authUsers.map((u, i) => (
-              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 10, position: 'relative' }}>
-                <button type="button" onClick={() => setAuthUsers(prev => prev.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
-                  <span className="icon icon-sm">delete</span>
-                </button>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <FF label="Name"><input value={u.name} onChange={e => updateUser(i, 'name', e.target.value)} style={inp} /></FF>
-                  <FF label="Email"><input type="email" value={u.email} onChange={e => updateUser(i, 'email', e.target.value)} style={inp} /></FF>
-                  <FF label="Access Level"><select value={u.access_level} onChange={e => updateUser(i, 'access_level', e.target.value)} style={inp}>{MFA_ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select></FF>
-                  <FF label="Notes"><input value={u.notes} onChange={e => updateUser(i, 'notes', e.target.value)} style={inp} /></FF>
-                </div>
-              </div>
-            ))}
+          <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
+            <AuthorizedUsersEditor users={authUsers} onChange={setAuthUsers} />
           </div>
         </div>
 
