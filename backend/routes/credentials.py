@@ -271,6 +271,7 @@ def create_credential(
         notes=body.notes or "",
         record_status=body.record_status or "Active",
         needs_sync=True,
+        local_modified_at=now_str,
     )
     db.add(cred)
     db.flush()
@@ -345,6 +346,7 @@ def update_credential(
             setattr(cred, enc, crypto.encrypt(plain_val))
 
     cred.last_updated_date = now_str[:10]
+    cred.local_modified_at = now_str
     cred.needs_sync = True
 
     actor       = user.display_name if user else (body.last_updated_by or "System")

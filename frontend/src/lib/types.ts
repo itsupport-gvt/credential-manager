@@ -174,3 +174,13 @@ export interface StaffUser {
   status: string;
   notes: string;
 }
+
+export interface RefDataItem {
+  id: number;
+  list_name: string;
+  value: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export type ReferenceData = Record<string, string[]>

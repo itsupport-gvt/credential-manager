@@ -69,12 +69,14 @@ _MIGRATIONS: dict[str, list[tuple[str, str, str]]] = {
         ("credential_type",       "VARCHAR",  "DEFAULT 'Password'"),
         ("authorized_users_json", "TEXT",     "DEFAULT '[]'"),
         ("mfa_methods_json",      "TEXT",     "DEFAULT '[]'"),
+        ("local_modified_at",     "VARCHAR",  "DEFAULT ''"),
     ],
     "change_log": [],
     "tenants": [],
     "categories": [],
     "users": [],
-    "auth_users": [],  # new table – created by create_all, no extra columns needed yet
+    "auth_users": [],
+    "reference_data": [],  # new table – created by create_all
 }
 
 

@@ -118,6 +118,24 @@ class DBCredential(Base):
     # Sync flag
     needs_sync = Column(Boolean, default=True)
 
+    # UTC ISO-8601 timestamp set on every local create/update — used for conflict resolution
+    local_modified_at = Column(String, default="")
+
+
+# ---------------------------------------------------------------------------
+# DBReferenceData
+# ---------------------------------------------------------------------------
+
+class DBReferenceData(Base):
+    __tablename__ = "reference_data"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    list_name = Column(String, index=True, nullable=False)  # e.g. "credential_type"
+    value = Column(String, nullable=False)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    needs_sync = Column(Boolean, default=True)
+
 
 # ---------------------------------------------------------------------------
 # DBChangeLog

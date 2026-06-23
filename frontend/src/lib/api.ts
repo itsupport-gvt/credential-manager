@@ -8,6 +8,8 @@ import type {
   SyncStatus,
   AuthUser,
   StaffUser,
+  RefDataItem,
+  ReferenceData,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -192,4 +194,14 @@ export const api = {
     req<StaffUser>(`/api/users/${user_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
   deleteStaffUser: (user_id: string) =>
     req<void>(`/api/users/${user_id}`, { method: 'DELETE' }),
+
+  // Reference data (dropdown lists)
+  getReferenceData: () => req<ReferenceData>('/api/reference-data'),
+  getAllRefDataItems: () => req<RefDataItem[]>('/api/reference-data/all'),
+  createRefDataItem: (data: { list_name: string; value: string; sort_order?: number }) =>
+    req<RefDataItem>('/api/reference-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  updateRefDataItem: (id: number, data: { value?: string; sort_order?: number; is_active?: boolean }) =>
+    req<RefDataItem>(`/api/reference-data/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  deleteRefDataItem: (id: number) =>
+    req<void>(`/api/reference-data/${id}`, { method: 'DELETE' }),
 }

@@ -4,17 +4,17 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { AutoInput } from '../components/AutoInput'
 import { AuthorizedUsersEditor } from '../components/AuthorizedUsersEditor'
-import type { Credential, Tenant, Category, AuthorizedUser, MfaMethod } from '../lib/types'
+import type { Credential, Tenant, Category, AuthorizedUser, MfaMethod, ReferenceData } from '../lib/types'
 
-const STATUSES         = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
-const PRIORITIES       = ['Critical', 'High', 'Medium', 'Low']
-const ENVIRONMENTS     = ['Production', 'Staging', 'Development', 'Testing', 'DR']
-const CRED_TYPES       = ['Password', 'OTP-Only', 'API Key', 'OAuth2', 'Database', 'SSH', 'License Key', 'Certificate', 'Identity / SSO', 'Custom']
-const MFA_TYPES        = ['TOTP', 'SMS', 'Email', 'Hardware Key', 'Passkey', 'Push', 'Biometric', 'Other']
-const ACCESS_LEVELS    = ['Admin', 'Owner', 'Member', 'Viewer', 'Read-Only', 'Service Account']
-const PROTOCOLS        = ['HTTPS', 'HTTP', 'SFTP', 'FTP', 'SSH', 'RDP', 'MySQL', 'PostgreSQL', 'MSSQL', 'Other']
-const BILLING_CYCLES   = ['Monthly', 'Annual', 'Quarterly', 'Bi-Annual', 'One-Time']
-const AUTO_RENEWALS    = ['Yes', 'No', 'Unknown']
+const DEFAULT_STATUSES       = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
+const DEFAULT_PRIORITIES     = ['Critical', 'High', 'Medium', 'Low']
+const DEFAULT_ENVIRONMENTS   = ['Production', 'Staging', 'Development', 'Testing', 'DR']
+const DEFAULT_CRED_TYPES     = ['Password', 'OTP-Only', 'API Key', 'OAuth2', 'Database', 'SSH', 'License Key', 'Certificate', 'Identity / SSO', 'Custom']
+const DEFAULT_MFA_TYPES      = ['TOTP', 'SMS', 'Email', 'Hardware Key', 'Passkey', 'Push', 'Biometric', 'Other']
+const DEFAULT_ACCESS_LEVELS  = ['Admin', 'Owner', 'Member', 'Viewer', 'Read-Only', 'Service Account']
+const DEFAULT_PROTOCOLS      = ['HTTPS', 'HTTP', 'SFTP', 'FTP', 'SSH', 'RDP', 'MySQL', 'PostgreSQL', 'MSSQL', 'Other']
+const DEFAULT_BILLING_CYCLES = ['Monthly', 'Annual', 'Quarterly', 'Bi-Annual', 'One-Time']
+const DEFAULT_AUTO_RENEWALS  = ['Yes', 'No', 'Unknown']
 
 const BLANK_MFA: MfaMethod = { type: 'TOTP', app_name: '', person_name: '', person_email: '', phone: '', notes: '' }
 
@@ -82,6 +82,7 @@ export default function EditCredentialPage() {
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<{ service_names: string[]; service_urls: string[]; usernames: string[] }>({ service_names: [], service_urls: [], usernames: [] })
+  const [refData, setRefData] = useState<ReferenceData>({})
 
   const [chPw, setChPw] = useState(false); const [newPw, setNewPw] = useState('')
   const [chAk, setChAk] = useState(false); const [newAk, setNewAk] = useState('')
@@ -92,6 +93,7 @@ export default function EditCredentialPage() {
 
   useEffect(() => {
     api.getSuggestions().then(setSuggestions).catch(() => {})
+    api.getReferenceData().then(setRefData).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -123,6 +125,16 @@ export default function EditCredentialPage() {
   }
 
   const subcategories = categories.find(c => c.category_name === form?.category)?.subcategories ?? []
+
+  const STATUSES      = refData.status         ?? DEFAULT_STATUSES
+  const PRIORITIES    = refData.priority        ?? DEFAULT_PRIORITIES
+  const ENVIRONMENTS  = refData.environment     ?? DEFAULT_ENVIRONMENTS
+  const CRED_TYPES    = refData.credential_type ?? DEFAULT_CRED_TYPES
+  const MFA_TYPES     = refData.mfa_type        ?? DEFAULT_MFA_TYPES
+  const ACCESS_LEVELS = refData.access_level    ?? DEFAULT_ACCESS_LEVELS
+  const PROTOCOLS     = refData.protocol        ?? DEFAULT_PROTOCOLS
+  const BILLING_CYCLES = refData.billing_cycle  ?? DEFAULT_BILLING_CYCLES
+  const AUTO_RENEWALS  = refData.auto_renewal   ?? DEFAULT_AUTO_RENEWALS
 
   function validate() {
     if (!form) return ['Form not loaded']

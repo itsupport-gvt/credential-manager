@@ -35,6 +35,7 @@ from routes.changelog import router as changelog_router
 from routes.credentials import router as credentials_router
 from routes.stats import router as stats_router
 from routes.tenants import router as tenants_router, seed_categories
+from routes.reference_data import router as reference_data_router, seed_reference_data
 from routes.users import router as users_router, staff_router as staff_users_router
 from services.sync_service import sync_from_excel, sync_status, sync_to_excel
 
@@ -44,7 +45,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.2.3"
+APP_VERSION = "1.3.0"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
@@ -112,10 +113,11 @@ async def lifespan(app: FastAPI):
     create_tables(engine)
     run_migrations(engine)
 
-    # Seed reference data (categories) — idempotent, safe every startup
+    # Seed reference data (categories + dropdown lists) — idempotent, safe every startup
     db0 = SessionLocal()
     try:
         seed_categories(db0)
+        seed_reference_data(db0)
     finally:
         db0.close()
 
@@ -182,6 +184,7 @@ app.include_router(changelog_router)
 app.include_router(stats_router)
 app.include_router(users_router)
 app.include_router(staff_users_router)
+app.include_router(reference_data_router)
 
 # ---------------------------------------------------------------------------
 # Sync endpoints

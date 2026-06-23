@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../lib/api'
-import type { SyncStatus } from '../lib/types'
+import type { SyncStatus, RefDataItem } from '../lib/types'
 import { useToast } from '../App'
 
 declare global {
@@ -58,6 +58,24 @@ export default function SettingsPage() {
   const [config, setConfig] = useState({ tenantId: '', clientId: '', authClientId: '', clientSecret: '', fileUrl: '' })
   const [showSecret, setShowSecret] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('')
+  const [refItems, setRefItems]       = useState<RefDataItem[]>([])
+  const [refLoading, setRefLoading]   = useState(true)
+  const [refExpanded, setRefExpanded] = useState<string | null>(null)
+  const [addingTo, setAddingTo]       = useState<string | null>(null)
+  const [newValue, setNewValue]       = useState('')
+  const [refBusy, setRefBusy]         = useState(false)
+
+  const LIST_LABELS: Record<string, string> = {
+    credential_type: 'Credential Types',
+    status:          'Status Values',
+    priority:        'Priority Levels',
+    environment:     'Environments',
+    protocol:        'Protocols',
+    billing_cycle:   'Billing Cycles',
+    auto_renewal:    'Auto-Renewal Options',
+    mfa_type:        'MFA Types',
+    access_level:    'Access Levels',
+  }
 
   useEffect(() => {
     api.getSyncStatus().then(setSyncStatus).catch(() => {}).finally(() => setSyncLoading(false))
@@ -68,6 +86,7 @@ export default function SettingsPage() {
     } else {
       setAppVersion('Web mode')
     }
+    api.getAllRefDataItems().then(setRefItems).catch(() => {}).finally(() => setRefLoading(false))
   }, [])
 
   async function handlePush() {
@@ -124,6 +143,46 @@ export default function SettingsPage() {
       else showToast(r.error || 'Update check failed', 'error')
     } catch (e) { showToast(e instanceof Error ? e.message : 'Update check failed', 'error') }
   }
+
+  async function handleAddRefItem(listName: string) {
+    const val = newValue.trim()
+    if (!val) return
+    setRefBusy(true)
+    try {
+      const maxOrder = Math.max(0, ...refItems.filter(r => r.list_name === listName).map(r => r.sort_order))
+      const item = await api.createRefDataItem({ list_name: listName, value: val, sort_order: maxOrder + 1 })
+      setRefItems(prev => [...prev, item])
+      setNewValue('')
+      setAddingTo(null)
+      showToast(`Added "${val}" to ${LIST_LABELS[listName] ?? listName}`, 'success')
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to add', 'error') }
+    finally { setRefBusy(false) }
+  }
+
+  async function handleToggleRefItem(item: RefDataItem) {
+    setRefBusy(true)
+    try {
+      const updated = await api.updateRefDataItem(item.id, { is_active: !item.is_active })
+      setRefItems(prev => prev.map(r => r.id === item.id ? updated : r))
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to update', 'error') }
+    finally { setRefBusy(false) }
+  }
+
+  async function handleDeleteRefItem(item: RefDataItem) {
+    if (!window.confirm(`Remove "${item.value}" from ${LIST_LABELS[item.list_name] ?? item.list_name}?`)) return
+    setRefBusy(true)
+    try {
+      await api.deleteRefDataItem(item.id)
+      setRefItems(prev => prev.filter(r => r.id !== item.id))
+      showToast(`Removed "${item.value}"`, 'success')
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to delete', 'error') }
+    finally { setRefBusy(false) }
+  }
+
+  const refByList = refItems.reduce<Record<string, RefDataItem[]>>((acc, r) => {
+    ;(acc[r.list_name] ??= []).push(r)
+    return acc
+  }, {})
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -239,6 +298,87 @@ export default function SettingsPage() {
               : <><span className="icon icon-sm">delete_sweep</span>Flush Local DB &amp; Re-sync</>
             }
           </button>
+        </Card>
+
+        {/* Reference Data */}
+        <Card title="Reference Data" icon="list_alt">
+          <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 14, lineHeight: 1.6 }}>
+            Manage the dropdown options used across all credential forms. Changes take effect immediately and sync to SharePoint.
+          </div>
+          {refLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Array.from({ length: 4 }).map((_, i) => <div key={i} style={{ height: 36, background: 'var(--surface-2)', borderRadius: 8, animation: 'pulse 1.5s infinite' }} />)}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {Object.entries(LIST_LABELS).map(([listName, label]) => {
+                const items = refByList[listName] ?? []
+                const isOpen = refExpanded === listName
+                return (
+                  <div key={listName} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                    <button
+                      onClick={() => setRefExpanded(isOpen ? null : listName)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface-2)', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-3)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)' }}>
+                          {items.filter(r => r.is_active).length} active
+                        </span>
+                        <span className="icon icon-sm" style={{ color: 'var(--text-3)' }}>{isOpen ? 'expand_less' : 'expand_more'}</span>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div style={{ padding: '10px 14px', background: 'var(--surface)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                          {items.sort((a, b) => a.sort_order - b.sort_order).map(item => (
+                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', opacity: item.is_active ? 1 : 0.5 }}>
+                              <span style={{ flex: 1, fontSize: 13, color: item.is_active ? 'var(--text-1)' : 'var(--text-3)' }}>{item.value}</span>
+                              <button
+                                onClick={() => handleToggleRefItem(item)}
+                                disabled={refBusy}
+                                title={item.is_active ? 'Disable' : 'Enable'}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: item.is_active ? 'var(--success)' : 'var(--text-3)', display: 'flex', padding: 2 }}
+                              >
+                                <span className="icon icon-sm">{item.is_active ? 'toggle_on' : 'toggle_off'}</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRefItem(item)}
+                                disabled={refBusy}
+                                title="Delete"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 2 }}
+                              >
+                                <span className="icon icon-sm">delete</span>
+                              </button>
+                            </div>
+                          ))}
+                          {items.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-3)', fontStyle: 'italic' }}>No items yet</div>}
+                        </div>
+                        {addingTo === listName ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              autoFocus
+                              value={newValue}
+                              onChange={e => setNewValue(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddRefItem(listName) } if (e.key === 'Escape') { setAddingTo(null); setNewValue('') } }}
+                              placeholder="New value…"
+                              style={{ flex: 1, padding: '7px 10px', border: '1px solid var(--primary)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text-1)', outline: 'none' }}
+                            />
+                            <button className="md-btn md-btn-primary" onClick={() => handleAddRefItem(listName)} disabled={refBusy || !newValue.trim()} style={{ padding: '7px 14px', fontSize: 13 }}>Add</button>
+                            <button className="md-btn" onClick={() => { setAddingTo(null); setNewValue('') }} style={{ padding: '7px 12px', fontSize: 13 }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <button className="md-btn md-btn-tonal" onClick={() => { setAddingTo(listName); setNewValue('') }} style={{ fontSize: 13, padding: '6px 14px' }}>
+                            <span className="icon icon-sm">add</span>Add Value
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Card>
 
         {/* Export */}

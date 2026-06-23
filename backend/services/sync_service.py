@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 import config
 import crypto
 from graph_client import graph
-from models_db import DBCategory, DBChangeLog, DBCredential, DBTenant, DBUser
+from models_db import DBCategory, DBChangeLog, DBCredential, DBReferenceData, DBTenant, DBUser
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,7 @@ CRED_COLUMN_MAP: dict[str, str] = {
     "Tags": "tags",
     "Notes": "notes",
     "Record_Status": "record_status",
+    "Last_Modified_At": "local_modified_at",
 }
 
 # Encrypted DB fields that carry plaintext from Excel
@@ -319,6 +320,14 @@ def sync_from_excel(db: Session) -> dict[str, int]:
                     DBCredential.credential_id == cred_id
                 ).first()
                 if existing:
+                    if existing.needs_sync:
+                        # Local has unsynced changes — compare timestamps (last-write-wins)
+                        excel_ts = _str(fields.get("local_modified_at", ""))
+                        local_ts = existing.local_modified_at or ""
+                        if excel_ts and local_ts and excel_ts <= local_ts:
+                            # Local is newer or equal — skip this row; push will win
+                            continue
+                        # Excel is newer (or timestamps missing) — Excel wins
                     for k, v in fields.items():
                         if k != "credential_id" and hasattr(existing, k):
                             setattr(existing, k, v)
@@ -722,6 +731,51 @@ def sync_to_excel(db: Session) -> dict[str, int]:
 
             db.commit()
             logger.info("Pushed %d users to Excel.", counts.get("pushed_users", 0))
+
+        # ---------------------------------------------------------------- #
+        # 5. Reference Data
+        # ---------------------------------------------------------------- #
+        pending_ref = (
+            db.query(DBReferenceData)
+            .filter(DBReferenceData.needs_sync == True)  # noqa: E712
+            .all()
+        )
+        if pending_ref:
+            try:
+                ref_headers = graph.get_table_headers(config.REF_DATA_TABLE)
+                excel_ref_rows = graph.get_table_rows(config.REF_DATA_TABLE)
+                excel_ref_index: dict[tuple[str, str], int] = {}
+                for er in excel_ref_rows:
+                    key = (_str(er.get("List_Name", "")), _str(er.get("Value", "")))
+                    if key[0]:
+                        excel_ref_index[key] = er["_row_index"]
+
+                for ref in pending_ref:
+                    row_dict = {
+                        "List_Name":  ref.list_name,
+                        "Value":      ref.value,
+                        "Sort_Order": str(ref.sort_order),
+                        "Is_Active":  "Yes" if ref.is_active else "No",
+                    }
+                    key = (ref.list_name, ref.value)
+                    if key in excel_ref_index:
+                        graph.update_table_row(
+                            config.REF_DATA_TABLE,
+                            excel_ref_index[key],
+                            row_dict,
+                            headers=ref_headers,
+                        )
+                    else:
+                        graph.add_table_row(config.REF_DATA_TABLE, row_dict, headers=ref_headers)
+
+                    ref.needs_sync = False
+                    counts["pushed_ref_data"] = counts.get("pushed_ref_data", 0) + 1
+
+                db.commit()
+                logger.info("Pushed %d reference data rows to Excel.", counts.get("pushed_ref_data", 0))
+            except Exception as exc:
+                logger.warning("Failed to push reference data (tblReferenceData may not exist): %s", exc)
+                db.rollback()
 
     except Exception as exc:
         sync_status["state"] = "error"
