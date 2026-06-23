@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -414,15 +414,22 @@ def reveal_field(
     actor       = user.display_name if user else accessed_by
     actor_email = user.email        if user else ""
 
-    _log_action(
-        db,
-        cred,
-        "REVEAL",
-        field_changed=field,
-        changed_by=actor,
-        changed_by_email=actor_email,
+    # Deduplicate: skip logging if the same user revealed this field within the last 5 minutes
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    already_logged = (
+        db.query(DBChangeLog)
+        .filter(
+            DBChangeLog.credential_id == credential_id,
+            DBChangeLog.action == "REVEAL",
+            DBChangeLog.field_changed == field,
+            DBChangeLog.changed_by == actor,
+            DBChangeLog.timestamp >= cutoff,
+        )
+        .first()
     )
-    db.commit()
+    if not already_logged:
+        _log_action(db, cred, "REVEAL", field_changed=field, changed_by=actor, changed_by_email=actor_email)
+        db.commit()
 
     return {"value": decrypted}
 

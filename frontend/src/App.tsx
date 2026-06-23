@@ -12,6 +12,7 @@ import ChangeLogPage from './pages/ChangeLogPage'
 import TenantsPage from './pages/TenantsPage'
 import CategoriesPage from './pages/CategoriesPage'
 import SettingsPage from './pages/SettingsPage'
+import UsersPage from './pages/UsersPage'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -264,6 +265,10 @@ const NAV = [
   { to: '/categories', label: 'Categories', icon: 'category' },
 ]
 
+const NAV_ADMIN = [
+  { to: '/users', label: 'Users', icon: 'group' },
+]
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -276,6 +281,7 @@ export default function App() {
 
 function AppInner() {
   const { user, loading, authEnabled } = useAuth()
+  const isAdmin = user?.role === 'Admin'
   const navigate = useNavigate()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
@@ -358,11 +364,11 @@ function AppInner() {
 
             {/* Nav */}
             <nav style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, overflow: 'hidden' }}>
-              {NAV.map(item => (
+              {[...NAV, ...(isAdmin ? NAV_ADMIN : [])].map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.end}
+                  end={'end' in item ? item.end : undefined}
                   style={({ isActive }) => ({
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '5px 11px', height: 30,
@@ -432,6 +438,7 @@ function AppInner() {
               <Route path="/tenants" element={<TenantsPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/users" element={<UsersPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
