@@ -257,7 +257,9 @@ function UserMenu() {
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 
-const NAV = [
+type NavItem = { to: string; end?: boolean; label: string; icon: string }
+
+const NAV: NavItem[] = [
   { to: '/', end: true, label: 'Dashboard', icon: 'dashboard' },
   { to: '/credentials', label: 'Credentials', icon: 'lock' },
   { to: '/changelog', label: 'Activity', icon: 'history' },
@@ -265,7 +267,7 @@ const NAV = [
   { to: '/categories', label: 'Categories', icon: 'category' },
 ]
 
-const NAV_ADMIN = [
+const NAV_ADMIN: NavItem[] = [
   { to: '/users', label: 'Users', icon: 'group' },
 ]
 
@@ -368,7 +370,7 @@ function AppInner() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={'end' in item ? item.end : undefined}
+                  end={item.end}
                   style={({ isActive }) => ({
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '5px 11px', height: 30,
