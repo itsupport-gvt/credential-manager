@@ -386,6 +386,25 @@ def archive_credential(
     return _to_response(cred)
 
 
+@router.get("/suggestions")
+def get_suggestions(
+    db: Session = Depends(get_db),
+    user: UserInfo = Depends(require_viewer),
+) -> dict:
+    """Return unique non-empty field values for frontend autocomplete."""
+    from sqlalchemy import distinct
+    def _unique(col):
+        return sorted({
+            r[0] for r in db.query(distinct(col)).filter(col != "").all()
+            if r[0]
+        })
+    return {
+        "service_names": _unique(DBCredential.service_name),
+        "service_urls":  _unique(DBCredential.service_url),
+        "usernames":     _unique(DBCredential.username_email),
+    }
+
+
 @router.get("/credential/{credential_id}/reveal/{field}")
 def reveal_field(
     credential_id: str,

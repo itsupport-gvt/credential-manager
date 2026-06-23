@@ -82,14 +82,15 @@ _stop_auto_sync = threading.Event()
 
 
 def _auto_sync_loop() -> None:
-    """Background thread: push pending records every 60 minutes."""
+    """Background thread: push then pull every 60 minutes."""
     logger.info("Auto-sync thread started (interval=%ds).", _SYNC_INTERVAL_SECONDS)
     while not _stop_auto_sync.wait(timeout=_SYNC_INTERVAL_SECONDS):
-        logger.info("Auto-sync: pushing pending records to Excel.")
         db = SessionLocal()
         try:
-            result = sync_to_excel(db)
-            logger.info("Auto-sync complete: %s", result)
+            push = sync_to_excel(db)
+            logger.info("Auto-sync push: %s", push)
+            pull = sync_from_excel(db)
+            logger.info("Auto-sync pull: %s", pull)
         except Exception as exc:
             logger.warning("Auto-sync failed: %s", exc)
         finally:

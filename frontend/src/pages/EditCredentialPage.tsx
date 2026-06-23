@@ -1,6 +1,8 @@
-import { useEffect, useState, type ChangeEvent, type ReactNode, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { AutoInput } from '../components/AutoInput'
 import type { Credential, Tenant, Category, AuthorizedUser, MfaMethod } from '../lib/types'
 
 const STATUSES         = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
@@ -71,6 +73,8 @@ type FormFields = Omit<Credential, 'id' | 'has_password' | 'has_api_key' | 'has_
 export default function EditCredentialPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const formRef = useRef<HTMLFormElement>(null)
   const [cred, setCred] = useState<Credential | null>(null)
   const [form, setForm] = useState<FormFields | null>(null)
   const [tenants, setTenants] = useState<Tenant[]>([])
@@ -78,6 +82,7 @@ export default function EditCredentialPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<{ service_names: string[]; service_urls: string[]; usernames: string[] }>({ service_names: [], service_urls: [], usernames: [] })
 
   const [chPw, setChPw] = useState(false); const [newPw, setNewPw] = useState('')
   const [chAk, setChAk] = useState(false); const [newAk, setNewAk] = useState('')
@@ -85,6 +90,21 @@ export default function EditCredentialPage() {
   const [chCs, setChCs] = useState(false); const [newCs, setNewCs] = useState('')
   const [mfaMethods, setMfaMethods] = useState<MfaMethod[]>([])
   const [authUsers, setAuthUsers] = useState<AuthorizedUser[]>([])
+
+  useEffect(() => {
+    api.getSuggestions().then(setSuggestions).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        formRef.current?.requestSubmit()
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -123,7 +143,7 @@ export default function EditCredentialPage() {
     const payload: Record<string, unknown> = {
       ...form,
       monthly_cost: form.monthly_cost ? parseFloat(form.monthly_cost) : 0,
-      last_updated_by: 'Current User',
+      last_updated_by: user?.name || user?.email || '',
       last_updated_date: new Date().toISOString().split('T')[0],
       authorized_users: authUsers,
       mfa_methods: mfaMethods,
@@ -158,7 +178,7 @@ export default function EditCredentialPage() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 80 }}>
       <div>
         <button onClick={() => navigate(`/credential/${id}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: 0, marginBottom: 10 }}>
           <span className="icon icon-sm">arrow_back</span>Back to Credential
@@ -173,7 +193,7 @@ export default function EditCredentialPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit}>
         <Sec title="1. Core Identity">
           <FF label="Credential Type" required><SI name="credential_type" value={form.credential_type ?? 'Password'} onChange={handleChange} options={CRED_TYPES} /></FF>
           <FF label="Tenant" required>
@@ -193,15 +213,15 @@ export default function EditCredentialPage() {
               ? <SI name="subcategory" value={form.subcategory} onChange={handleChange} options={subcategories} placeholder="Select…" />
               : <TI name="subcategory" value={form.subcategory} onChange={handleChange} />}
           </FF>
-          <FF label="Service Name" required><TI name="service_name" value={form.service_name} onChange={handleChange} required /></FF>
-          <FF label="Service URL"><TI name="service_url" value={form.service_url} onChange={handleChange} type="url" /></FF>
+          <FF label="Service Name" required><AutoInput name="service_name" value={form.service_name} onChange={handleChange} suggestions={suggestions.service_names} required /></FF>
+          <FF label="Service URL"><AutoInput name="service_url" value={form.service_url} onChange={handleChange} suggestions={suggestions.service_urls} type="url" /></FF>
           <FF label="Environment"><SI name="environment" value={form.environment} onChange={handleChange} options={ENVIRONMENTS} /></FF>
           <FF label="Status" required><SI name="status" value={form.status} onChange={handleChange} options={STATUSES} /></FF>
           <FF label="Priority" required><SI name="priority" value={form.priority} onChange={handleChange} options={PRIORITIES} /></FF>
         </Sec>
 
         <Sec title="2. Authentication">
-          <FF label="Username / Email" required><TI name="username_email" value={form.username_email} onChange={handleChange} required /></FF>
+          <FF label="Username / Email" required><AutoInput name="username_email" value={form.username_email} onChange={handleChange} suggestions={suggestions.usernames} required /></FF>
           <SecretEdit name="password" label="Password" hasValue={cred.has_password} enabled={chPw} value={newPw} onToggle={() => setChPw(v => !v)} onChange={e => setNewPw(e.target.value)} />
           <FF label="Recovery Email"><TI name="recovery_email" value={form.recovery_email} onChange={handleChange} type="email" /></FF>
           <FF label="Recovery Phone"><TI name="recovery_phone" value={form.recovery_phone} onChange={handleChange} type="tel" /></FF>
@@ -307,13 +327,15 @@ export default function EditCredentialPage() {
           </div>
         </Sec>
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-          <button type="submit" disabled={submitting} className="md-btn md-btn-primary">
-            {submitting ? 'Saving…' : <><span className="icon icon-sm">save</span>Save Changes</>}
-          </button>
-          <button type="button" onClick={() => navigate(`/credential/${id}`)} className="md-btn md-btn-outlined">Cancel</button>
-        </div>
       </form>
+
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 -4px 16px rgba(0,0,0,.1)' }}>
+        <button onClick={() => formRef.current?.requestSubmit()} disabled={submitting} className="md-btn md-btn-primary">
+          {submitting ? 'Saving…' : <><span className="icon icon-sm">save</span>Save Changes</>}
+        </button>
+        <button type="button" onClick={() => navigate(`/credential/${id}`)} className="md-btn md-btn-outlined">Cancel</button>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>Ctrl+S to save</span>
+      </div>
     </div>
   )
 }

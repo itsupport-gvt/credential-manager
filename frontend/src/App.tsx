@@ -42,7 +42,7 @@ let toastCounter = 0
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   if (toasts.length === 0) return null
   return (
-    <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 380 }}>
+    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 8, maxWidth: 380 }}>
       {toasts.map((t) => (
         <div key={t.id} style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px',
@@ -285,6 +285,19 @@ function AppInner() {
   const { user, loading, authEnabled } = useAuth()
   // When auth is disabled every session is implicitly Admin
   const isAdmin = !authEnabled || user?.role === 'Admin'
+  const canCreate = !authEnabled || user?.role === 'Admin' || user?.role === 'Editor'
+
+  // Global Ctrl+N → new credential
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n' && canCreate) {
+        e.preventDefault()
+        navigate('/credential/new')
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [navigate, canCreate])
   const navigate = useNavigate()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
@@ -402,6 +415,22 @@ function AppInner() {
 
             {/* Right controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, paddingLeft: 8 }}>
+              {canCreate && (
+                <button
+                  onClick={() => navigate('/credential/new')}
+                  title="New Credential (Ctrl+N)"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5, height: 28,
+                    padding: '0 12px', borderRadius: 6, cursor: 'pointer',
+                    background: 'rgba(66,133,244,.2)', color: '#82b4ff',
+                    border: '1px solid rgba(66,133,244,.3)',
+                    fontSize: 12, fontFamily: "'Google Sans', sans-serif", fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  <span className="icon icon-sm" style={{ fontSize: 15 }}>add</span>New
+                </button>
+              )}
               <SyncButton showToast={showToast} />
 
               {/* Divider */}

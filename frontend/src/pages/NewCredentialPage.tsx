@@ -1,6 +1,8 @@
-import { useEffect, useState, type ChangeEvent, type ReactNode, type FormEvent } from 'react'
+import { useEffect, useState, useRef, type ChangeEvent, type ReactNode, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { AutoInput } from '../components/AutoInput'
 import type { Tenant, Category, AuthorizedUser, MfaMethod } from '../lib/types'
 
 const STATUSES         = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
@@ -83,28 +85,49 @@ interface FS {
 
 const today = () => new Date().toISOString().split('T')[0]
 
-const EMPTY: FS = {
-  tenant_code: '', tenant_name: '', category: '', subcategory: '', service_name: '', service_url: '', environment: 'Production', status: 'Active', priority: 'Medium',
-  credential_type: 'Password',
-  username_email: '', password: '', recovery_email: '', recovery_phone: '', backup_codes_location: '', security_notes: '',
-  account_display_name: '', account_id: '', license_type: '', plan_tier: '', subscription_start: '', subscription_end: '', auto_renewal: 'No', monthly_cost: '', billing_cycle: '', billing_email: '', payment_reference: '',
-  access_level: '', linked_credential_id: '', api_key: '', api_secret: '', client_id: '', client_secret: '', tenant_id_app: '', subscription_id_azure: '', server_hostname: '', port: '', protocol: '', database_name: '',
-  managed_by: 'Current User', managed_by_email: '', created_by: 'Current User', created_date: today(), tags: '', notes: '',
-}
-
 export default function NewCredentialPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState<FS>(EMPTY)
-  const [tenants, setTenants] = useState<Tenant[]>([])
+  const { user } = useAuth()
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const [form, setForm] = useState<FS>(() => ({
+    tenant_code: '', tenant_name: '', category: '', subcategory: '', service_name: '', service_url: '',
+    environment: 'Production', status: 'Active', priority: 'Medium', credential_type: 'Password',
+    username_email: '', password: '', recovery_email: '', recovery_phone: '', backup_codes_location: '', security_notes: '',
+    account_display_name: '', account_id: '', license_type: '', plan_tier: '', subscription_start: '', subscription_end: '',
+    auto_renewal: 'No', monthly_cost: '', billing_cycle: '', billing_email: '', payment_reference: '',
+    access_level: '', linked_credential_id: '', api_key: '', api_secret: '', client_id: '', client_secret: '',
+    tenant_id_app: '', subscription_id_azure: '', server_hostname: '', port: '', protocol: '', database_name: '',
+    managed_by: user?.name || '',
+    managed_by_email: user?.email || '',
+    created_by: user?.name || '',
+    created_date: today(), tags: '', notes: '',
+  }))
+
+  const [tenants, setTenants]       = useState<Tenant[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [errors, setErrors] = useState<string[]>([])
+  const [errors, setErrors]         = useState<string[]>([])
   const [mfaMethods, setMfaMethods] = useState<MfaMethod[]>([])
-  const [authUsers, setAuthUsers] = useState<AuthorizedUser[]>([])
+  const [authUsers, setAuthUsers]   = useState<AuthorizedUser[]>([])
+  const [suggestions, setSuggestions] = useState<{ service_names: string[]; service_urls: string[]; usernames: string[] }>({ service_names: [], service_urls: [], usernames: [] })
 
   useEffect(() => {
     api.listTenants().then(setTenants).catch(() => {})
     api.listCategories().then(setCategories).catch(() => {})
+    api.getSuggestions().then(setSuggestions).catch(() => {})
+  }, [])
+
+  // Ctrl+S → submit
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        formRef.current?.requestSubmit()
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   }, [])
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
@@ -154,7 +177,7 @@ export default function NewCredentialPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 80 }}>
       <div>
         <button onClick={() => navigate('/credentials')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: 0, marginBottom: 10 }}>
           <span className="icon icon-sm">arrow_back</span>Back to Credentials
@@ -169,7 +192,7 @@ export default function NewCredentialPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit}>
         <Sec title="1. Core Identity">
           <FF label="Credential Type" required><SI name="credential_type" value={form.credential_type} onChange={handleChange} options={CRED_TYPES} /></FF>
           <FF label="Tenant" required>
@@ -189,15 +212,21 @@ export default function NewCredentialPage() {
               ? <SI name="subcategory" value={form.subcategory} onChange={handleChange} options={subcategories} placeholder="Select…" />
               : <TI name="subcategory" value={form.subcategory} onChange={handleChange} />}
           </FF>
-          <FF label="Service Name" required><TI name="service_name" value={form.service_name} onChange={handleChange} required /></FF>
-          <FF label="Service URL"><TI name="service_url" value={form.service_url} onChange={handleChange} type="url" placeholder="https://" /></FF>
+          <FF label="Service Name" required>
+            <AutoInput name="service_name" value={form.service_name} onChange={handleChange} suggestions={suggestions.service_names} required />
+          </FF>
+          <FF label="Service URL">
+            <AutoInput name="service_url" value={form.service_url} onChange={handleChange} suggestions={suggestions.service_urls} placeholder="https://" type="url" />
+          </FF>
           <FF label="Environment"><SI name="environment" value={form.environment} onChange={handleChange} options={ENVIRONMENTS} /></FF>
           <FF label="Status" required><SI name="status" value={form.status} onChange={handleChange} options={STATUSES} /></FF>
           <FF label="Priority" required><SI name="priority" value={form.priority} onChange={handleChange} options={PRIORITIES} /></FF>
         </Sec>
 
         <Sec title="2. Authentication">
-          <FF label="Username / Email" required><TI name="username_email" value={form.username_email} onChange={handleChange} required /></FF>
+          <FF label="Username / Email" required>
+            <AutoInput name="username_email" value={form.username_email} onChange={handleChange} suggestions={suggestions.usernames} required />
+          </FF>
           <FF label="Password"><PI name="password" value={form.password} onChange={handleChange} /></FF>
           <FF label="Recovery Email"><TI name="recovery_email" value={form.recovery_email} onChange={handleChange} type="email" /></FF>
           <FF label="Recovery Phone"><TI name="recovery_phone" value={form.recovery_phone} onChange={handleChange} type="tel" /></FF>
@@ -300,14 +329,21 @@ export default function NewCredentialPage() {
             <FF label="Notes"><textarea name="notes" value={form.notes} onChange={handleChange} rows={3} style={{ ...inp, resize: 'vertical' }} /></FF>
           </div>
         </Sec>
-
-        <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-          <button type="submit" disabled={submitting} className="md-btn md-btn-primary">
-            {submitting ? 'Creating…' : <><span className="icon icon-sm">save</span>Create Credential</>}
-          </button>
-          <button type="button" onClick={() => navigate('/credentials')} className="md-btn md-btn-outlined">Cancel</button>
-        </div>
       </form>
+
+      {/* Floating save bar */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+        background: 'var(--surface)', borderTop: '1px solid var(--border)',
+        padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12,
+        boxShadow: '0 -4px 16px rgba(0,0,0,.1)',
+      }}>
+        <button type="button" onClick={() => formRef.current?.requestSubmit()} disabled={submitting} className="md-btn md-btn-primary">
+          {submitting ? 'Creating…' : <><span className="icon icon-sm">save</span>Create Credential</>}
+        </button>
+        <button type="button" onClick={() => navigate('/credentials')} className="md-btn md-btn-outlined">Cancel</button>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>Ctrl+S to save</span>
+      </div>
     </div>
   )
 }
