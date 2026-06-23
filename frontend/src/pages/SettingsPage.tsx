@@ -132,7 +132,7 @@ export default function SettingsPage() {
         <div className="page-subtitle">SharePoint sync and application configuration</div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 680 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px', alignItems: 'start' }}>
         {/* Sync Status */}
         <Card title="Sync Status" icon="cloud_sync">
           {syncLoading ? (
@@ -260,10 +260,7 @@ export default function SettingsPage() {
                 {appVersion || '…'}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Built by</span>
-              <span style={{ fontSize: 14, color: 'var(--text-1)' }}>Gravity Business Partners</span>
-            </div>
+
             {isElectron && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
                 <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Updates</span>

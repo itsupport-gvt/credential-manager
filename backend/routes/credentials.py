@@ -131,6 +131,7 @@ def list_credentials(
     category: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
+    linked_to: Optional[str] = Query(None, description="Return credentials whose linked_credential_id matches this ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -158,6 +159,8 @@ def list_credentials(
         query = query.filter(DBCredential.status == status)
     if priority:
         query = query.filter(DBCredential.priority == priority)
+    if linked_to:
+        query = query.filter(DBCredential.linked_credential_id == linked_to)
 
     total = query.count()
     pages = max(1, math.ceil(total / page_size))

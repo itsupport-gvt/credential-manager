@@ -102,6 +102,8 @@ export default function CredentialDetailPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [cred, setCred] = useState<Credential | null>(null)
+  const [parent, setParent] = useState<Credential | null>(null)
+  const [children, setChildren] = useState<Credential[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'details' | 'history'>('details')
@@ -109,7 +111,20 @@ export default function CredentialDetailPage() {
 
   useEffect(() => {
     if (!id) return
-    api.getCredential(id).then(setCred).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed')).finally(() => setLoading(false))
+    api.getCredential(id)
+      .then(c => {
+        setCred(c)
+        // Fetch parent if this is a child credential
+        if (c.linked_credential_id) {
+          api.getCredential(c.linked_credential_id).then(setParent).catch(() => {})
+        }
+        // Always fetch children (credentials that link to this one)
+        api.listCredentials({ linked_to: c.credential_id, page_size: 100 })
+          .then(r => setChildren(r.items))
+          .catch(() => {})
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed'))
+      .finally(() => setLoading(false))
   }, [id])
 
   async function handleArchive() {
@@ -176,6 +191,72 @@ export default function CredentialDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Shared Identity: child banner (this credential uses a master) ── */}
+      {parent && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 18px', background: 'var(--primary-bg)', border: '1px solid rgba(26,115,232,.25)', borderRadius: 10 }}>
+          <span className="icon" style={{ fontSize: 22, color: 'var(--primary)', flexShrink: 0, marginTop: 1 }}>link</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', marginBottom: 4 }}>Shared Identity</div>
+            <div style={{ fontSize: 13, color: 'var(--text-1)' }}>
+              Auth for this service is provided by a shared master credential. Manage the password there.
+            </div>
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', width: 'fit-content' }}>
+              <span className="icon icon-sm" style={{ color: 'var(--primary)' }}>lock</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{parent.service_name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{parent.username_email}{parent.category ? ` · ${parent.category}` : ''}</div>
+              </div>
+              <Link
+                to={`/credential/${parent.credential_id}`}
+                style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}
+              >
+                View master <span className="icon icon-sm">arrow_forward</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Shared Identity: master banner (other credentials link to this one) ── */}
+      {children.length > 0 && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'var(--surface-2)' }}>
+            <span className="icon icon-sm" style={{ color: 'var(--primary)' }}>hub</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', fontFamily: "'Google Sans', sans-serif" }}>
+              Shared Identity — used by {children.length} {children.length === 1 ? 'service' : 'services'}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 4 }}>
+              These credentials authenticate via this master account
+            </span>
+          </div>
+          <div style={{ background: 'var(--surface)' }}>
+            {children.map((child, i) => (
+              <div key={child.credential_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                <span className="icon icon-sm" style={{ color: 'var(--text-3)', flexShrink: 0 }}>lock</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-1)' }}>{child.service_name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                    {[child.category, child.tenant_name || child.tenant_code].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                {child.service_url && (
+                  <a href={child.service_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--text-3)', textDecoration: 'none', flexShrink: 0 }}>
+                    <span className="icon icon-sm">open_in_new</span>
+                  </a>
+                )}
+                <StatusBadge status={child.status} />
+                <Link
+                  to={`/credential/${child.credential_id}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--primary)', textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}
+                >
+                  View <span className="icon icon-sm">arrow_forward</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
@@ -292,7 +373,12 @@ export default function CredentialDetailPage() {
 
           <Section title="6. Technical / API" open={false}>
             <FR label="Access Level" value={fmt(cred.access_level)} />
-            <FR label="Linked Credential" value={cred.linked_credential_id ? <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)' }}>{cred.linked_credential_id}</Link> : null} />
+            <FR label="Linked Credential" value={cred.linked_credential_id ? (
+              <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span className="icon icon-sm">lock</span>
+                {parent ? parent.service_name : cred.linked_credential_id}
+              </Link>
+            ) : null} />
             <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
               <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>API Key</div>
               <MaskedField label="" credentialId={cred.credential_id} field="api_key" hasValue={cred.has_api_key} />

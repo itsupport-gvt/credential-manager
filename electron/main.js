@@ -373,8 +373,8 @@ function createMainWindow (port) {
     show:   false,
     titleBarStyle:    'hidden',
     titleBarOverlay:  {
-      color:       '#16191f',
-      symbolColor: '#e8eaed',
+      color:       readUiSettings().theme === 'dark' ? '#16191f' : '#ffffff',
+      symbolColor: readUiSettings().theme === 'dark' ? '#e8eaed' : '#3c4043',
       height:      44,
     },
     webPreferences: {
@@ -598,6 +598,13 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('set-theme', (_event, theme) => {
   writeUiSettings({ theme })
+  if (mainWindow) {
+    const isDark = theme === 'dark'
+    mainWindow.setTitleBarOverlay({
+      color:       isDark ? '#16191f' : '#ffffff',
+      symbolColor: isDark ? '#e8eaed' : '#3c4043'
+    })
+  }
   return { ok: true }
 })
 

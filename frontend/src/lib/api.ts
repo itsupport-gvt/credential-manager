@@ -89,7 +89,7 @@ export const api = {
   // Credentials
   listCredentials: (params: {
     q?: string; tenant?: string; category?: string
-    status?: string; priority?: string; page?: number; page_size?: number
+    status?: string; priority?: string; linked_to?: string; page?: number; page_size?: number
   }) => {
     const s = new URLSearchParams()
     if (params.q) s.set('q', params.q)
@@ -97,6 +97,7 @@ export const api = {
     if (params.category) s.set('category', params.category)
     if (params.status) s.set('status', params.status)
     if (params.priority) s.set('priority', params.priority)
+    if (params.linked_to) s.set('linked_to', params.linked_to)
     if (params.page != null) s.set('page', String(params.page))
     if (params.page_size != null) s.set('page_size', String(params.page_size))
     const qs = s.toString()
