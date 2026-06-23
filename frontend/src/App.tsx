@@ -18,15 +18,15 @@ import UsersPage from './pages/UsersPage'
 
 const isElectron = typeof window !== 'undefined' && !!(window as Window & { credManager?: unknown }).credManager
 
-// Header is always dark — these are fixed, not theme-responsive
-const H_BG          = '#16191f'
-const H_BORDER      = 'rgba(255,255,255,.08)'
-const H_TEXT        = 'rgba(255,255,255,.6)'
-const H_TEXT_ACTIVE = '#ffffff'
-const H_ACTIVE_BG   = 'rgba(66,133,244,.18)'
-const H_ACTIVE_TXT  = '#82b4ff'
-const H_HOVER_BG    = 'rgba(255,255,255,.07)'
-const H_DIVIDER     = 'rgba(255,255,255,.12)'
+// Header colors — driven by CSS variables that switch with theme (see index.css)
+const H_BG          = 'var(--h-bg)'
+const H_BORDER      = 'var(--h-border)'
+const H_TEXT        = 'var(--h-text)'
+const H_TEXT_ACTIVE = 'var(--h-text-active)'
+const H_ACTIVE_BG   = 'var(--h-active-bg)'
+const H_ACTIVE_TXT  = 'var(--h-active-txt)'
+const H_HOVER_BG    = 'var(--h-hover-bg)'
+const H_DIVIDER     = 'var(--h-divider)'
 const H_HEIGHT      = 44
 
 // ── Toast system ─────────────────────────────────────────────────────────────
@@ -120,8 +120,8 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 200, zIndex: 200,
-          background: '#1e2330', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,.5)', overflow: 'hidden',
+          background: 'var(--h-dropdown-bg)', border: '1px solid var(--h-dropdown-bdr)', borderRadius: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,.3)', overflow: 'hidden',
         }}>
           {[
             { label: 'Push to SharePoint', icon: 'upload', action: 'push' as const },
@@ -131,10 +131,10 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
             <button key={item.action} onClick={() => doSync(item.action)} style={{
               display: 'flex', alignItems: 'center', gap: 10, width: '100%',
               padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer',
-              fontSize: 13, color: 'rgba(255,255,255,.8)', textAlign: 'left',
+              fontSize: 13, color: 'var(--h-dropdown-text)', textAlign: 'left',
               transition: 'background .1s',
             }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.06)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--h-dropdown-hover)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
               <span className="icon icon-sm" style={{ color: H_ACTIVE_TXT }}>{item.icon}</span>
@@ -221,12 +221,12 @@ function UserMenu() {
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 210, zIndex: 200,
-          background: '#1e2330', border: '1px solid rgba(255,255,255,.1)',
-          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.5)', overflow: 'hidden',
+          background: 'var(--h-dropdown-bg)', border: '1px solid var(--h-dropdown-bdr)',
+          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.3)', overflow: 'hidden',
         }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{user.name}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>{user.email}</div>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--h-dropdown-bdr)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--h-text-active)' }}>{user.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--h-text)', marginTop: 2 }}>{user.email}</div>
             <div style={{
               marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
@@ -241,9 +241,9 @@ function UserMenu() {
             style={{
               display: 'flex', alignItems: 'center', gap: 10, width: '100%',
               padding: '10px 14px', border: 'none', background: 'none',
-              color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13,
+              color: 'var(--h-dropdown-text)', cursor: 'pointer', fontSize: 13,
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.06)'}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--h-dropdown-hover)'}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
             <span className="icon icon-sm" style={{ color: '#ea4335' }}>logout</span>
@@ -283,6 +283,7 @@ export default function App() {
 
 function AppInner() {
   const { user, loading, authEnabled } = useAuth()
+  const navigate = useNavigate()
   // When auth is disabled every session is implicitly Admin
   const isAdmin = !authEnabled || user?.role === 'Admin'
   const canCreate = !authEnabled || user?.role === 'Admin' || user?.role === 'Editor'
@@ -298,7 +299,6 @@ function AppInner() {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [navigate, canCreate])
-  const navigate = useNavigate()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
     (localStorage.getItem('cred-theme') as 'light' | 'dark') || 'light'

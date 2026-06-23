@@ -27,6 +27,20 @@
   --radius-sm:  8px;
   --radius:     12px;
   --radius-lg:  16px;
+
+  /* Header tokens – light */
+  --h-bg:             #ffffff;
+  --h-border:         #e0e0e0;
+  --h-text:           #5f6368;
+  --h-text-active:    #202124;
+  --h-active-bg:      rgba(26,115,232,.1);
+  --h-active-txt:     #1a73e8;
+  --h-hover-bg:       rgba(0,0,0,.06);
+  --h-divider:        #e0e0e0;
+  --h-dropdown-bg:    #ffffff;
+  --h-dropdown-bdr:   #e0e0e0;
+  --h-dropdown-text:  #5f6368;
+  --h-dropdown-hover: rgba(0,0,0,.05);
 }
 
 /* ── Design Tokens – Dark ───────────────────────────────────────── */
@@ -51,6 +65,20 @@ html.dark {
   --shadow-1:   0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
   --shadow-2:   0 2px 6px rgba(0,0,0,.4), 0 1px 4px rgba(0,0,0,.3);
   --shadow-3:   0 4px 12px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.25);
+
+  /* Header tokens – dark */
+  --h-bg:             #16191f;
+  --h-border:         rgba(255,255,255,.08);
+  --h-text:           rgba(255,255,255,.6);
+  --h-text-active:    #ffffff;
+  --h-active-bg:      rgba(66,133,244,.18);
+  --h-active-txt:     #82b4ff;
+  --h-hover-bg:       rgba(255,255,255,.07);
+  --h-divider:        rgba(255,255,255,.12);
+  --h-dropdown-bg:    #1e2330;
+  --h-dropdown-bdr:   rgba(255,255,255,.1);
+  --h-dropdown-text:  rgba(255,255,255,.8);
+  --h-dropdown-hover: rgba(255,255,255,.06);
 }
 
 /* ── Base ───────────────────────────────────────────────────────── */
