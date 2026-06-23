@@ -48,6 +48,12 @@ contextBridge.exposeInMainWorld('credManager', {
   // Fresh ID token string (does silent acquire / refresh) or null
   getMsToken: () => ipcRenderer.invoke('get-ms-token'),
 
+  // All accounts currently in the MSAL cache (for account picker on login screen)
+  getCachedAccounts: () => ipcRenderer.invoke('get-cached-accounts'),
+
+  // Select a specific cached account by homeAccountId (silent acquire)
+  selectAccount: (homeAccountId) => ipcRenderer.invoke('select-account', homeAccountId),
+
   // Listen for update events pushed from main process
   onUpdateAvailable: (cb) => {
     ipcRenderer.on('update-available', (_event, info) => cb(info))

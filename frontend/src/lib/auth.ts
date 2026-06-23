@@ -34,12 +34,19 @@ export interface AuthUserInfo {
   role: AppRole
 }
 
+export interface CachedAccount {
+  homeAccountId: string
+  name: string
+  email: string
+}
+
 interface AuthContextValue {
   user: AuthUserInfo | null
   loading: boolean
   authEnabled: boolean
   login: () => Promise<{ ok: boolean; error?: string }>
   logout: () => Promise<void>
+  selectAccount: (homeAccountId: string) => Promise<{ ok: boolean; error?: string }>
 }
 
 // ---------------------------------------------------------------------------
@@ -50,8 +57,9 @@ export const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   authEnabled: false,
-  login:  async () => ({ ok: false, error: 'Not mounted' }),
-  logout: async () => {},
+  login:         async () => ({ ok: false, error: 'Not mounted' }),
+  logout:        async () => {},
+  selectAccount: async () => ({ ok: false, error: 'Not mounted' }),
 })
 
 export function useAuth(): AuthContextValue {
@@ -63,10 +71,12 @@ export function useAuth(): AuthContextValue {
 // ---------------------------------------------------------------------------
 
 type CredManagerBridge = {
-  getMsUser?:  () => Promise<{ name: string; email: string; oid: string; token: string } | null>
-  getMsToken?: () => Promise<string | null>
-  msLogin?:    () => Promise<{ ok: boolean; user?: { name: string; email: string; oid: string; token: string } | null; error?: string }>
-  msLogout?:   () => Promise<{ ok: boolean }>
+  getMsUser?:         () => Promise<{ name: string; email: string; oid: string; token: string } | null>
+  getMsToken?:        () => Promise<string | null>
+  msLogin?:           () => Promise<{ ok: boolean; user?: { name: string; email: string; oid: string; token: string } | null; error?: string }>
+  msLogout?:          () => Promise<{ ok: boolean }>
+  getCachedAccounts?: () => Promise<CachedAccount[]>
+  selectAccount?:     (homeAccountId: string) => Promise<{ ok: boolean; error?: string }>
 }
 
 function bridge(): CredManagerBridge {
@@ -144,9 +154,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchMe()
   }, [fetchMe])
 
+  const selectAccount = useCallback(async (homeAccountId: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const result = await bridge().selectAccount?.(homeAccountId)
+      if (!result?.ok) return { ok: false, error: result?.error ?? 'Failed to select account' }
+      const me = await fetchMe()
+      setUser(me)
+      return me ? { ok: true } : { ok: false, error: 'Role not assigned — contact your administrator.' }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }, [fetchMe])
+
   return createElement(
     AuthContext.Provider,
-    { value: { user, loading, authEnabled, login, logout } },
+    { value: { user, loading, authEnabled, login, logout, selectAccount } },
     children,
   )
 }

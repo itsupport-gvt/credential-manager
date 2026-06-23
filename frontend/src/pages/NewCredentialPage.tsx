@@ -9,7 +9,7 @@ import type { Tenant, Category, AuthorizedUser, MfaMethod } from '../lib/types'
 const STATUSES         = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
 const PRIORITIES       = ['Critical', 'High', 'Medium', 'Low']
 const ENVIRONMENTS     = ['Production', 'Staging', 'Development', 'Testing', 'DR']
-const CRED_TYPES       = ['Password', 'OTP-Only', 'API Key', 'OAuth2', 'Database', 'SSH', 'License Key', 'Certificate', 'Custom']
+const CRED_TYPES       = ['Password', 'OTP-Only', 'API Key', 'OAuth2', 'Database', 'SSH', 'License Key', 'Certificate', 'Identity / SSO', 'Custom']
 const MFA_TYPES        = ['TOTP', 'SMS', 'Email', 'Hardware Key', 'Passkey', 'Push', 'Biometric', 'Other']
 const ACCESS_LEVELS    = ['Admin', 'Owner', 'Member', 'Viewer', 'Read-Only', 'Service Account']
 const PROTOCOLS        = ['HTTPS', 'HTTP', 'SFTP', 'FTP', 'SSH', 'RDP', 'MySQL', 'PostgreSQL', 'MSSQL', 'Other']

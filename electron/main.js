@@ -151,6 +151,9 @@ async function msAcquireSilent () {
   try {
     const accounts = await _msalApp.getTokenCache().getAllAccounts()
     if (!accounts || accounts.length === 0) return null
+    // Multiple accounts cached and none explicitly selected → return null so
+    // the login screen can show the account picker instead of silently picking one
+    if (!_msalAccount && accounts.length > 1) return null
     const account = _msalAccount || accounts[0]
     const result  = await _msalApp.acquireTokenSilent({ scopes: _MSAL_SCOPES, account })
     _msalAccount = result.account
@@ -525,6 +528,35 @@ ipcMain.handle('ms-logout', async () => {
   // Clear the persisted cache
   try { if (fs.existsSync(MSAL_CACHE_FILE)) fs.unlinkSync(MSAL_CACHE_FILE) } catch (_) {}
   return { ok: true }
+})
+
+// Returns all accounts currently in the MSAL token cache (for the account picker)
+ipcMain.handle('get-cached-accounts', async () => {
+  if (!_msalApp) return []
+  try {
+    const accounts = await _msalApp.getTokenCache().getAllAccounts()
+    return (accounts || []).map(a => ({
+      homeAccountId: a.homeAccountId,
+      name:  a.name     || '',
+      email: a.username || '',
+    }))
+  } catch { return [] }
+})
+
+// Select a specific cached account by homeAccountId and do a silent token acquire
+ipcMain.handle('select-account', async (_event, homeAccountId) => {
+  if (!_msalApp) return { ok: false, error: 'Auth not configured' }
+  try {
+    const accounts = await _msalApp.getTokenCache().getAllAccounts()
+    const account  = (accounts || []).find(a => a.homeAccountId === homeAccountId)
+    if (!account) return { ok: false, error: 'Account not found in cache' }
+    const result = await _msalApp.acquireTokenSilent({ scopes: _MSAL_SCOPES, account })
+    _msalAccount = result.account
+    _msIdToken   = result.idToken
+    return { ok: true, user: _msUserFromResult(result) }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
 })
 
 ipcMain.handle('get-ms-user', async () => {
