@@ -163,3 +163,14 @@ export interface AuthUser {
   last_login: string;
   created_at: string;
 }
+
+export interface StaffUser {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  department: string;
+  access_level: string;
+  status: string;
+  notes: string;
+}

@@ -35,7 +35,7 @@ from routes.changelog import router as changelog_router
 from routes.credentials import router as credentials_router
 from routes.stats import router as stats_router
 from routes.tenants import router as tenants_router, seed_categories
-from routes.users import router as users_router
+from routes.users import router as users_router, staff_router as staff_users_router
 from services.sync_service import sync_from_excel, sync_status, sync_to_excel
 
 logging.basicConfig(
@@ -44,7 +44,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
@@ -180,6 +180,7 @@ app.include_router(tenants_router)
 app.include_router(changelog_router)
 app.include_router(stats_router)
 app.include_router(users_router)
+app.include_router(staff_users_router)
 
 # ---------------------------------------------------------------------------
 # Sync endpoints

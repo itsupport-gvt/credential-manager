@@ -7,6 +7,7 @@ import type {
   Stats,
   SyncStatus,
   AuthUser,
+  StaffUser,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -178,4 +179,13 @@ export const api = {
   listAuthUsers: () => req<AuthUser[]>('/api/auth/users'),
   setUserStatus: (oid: string, is_active: boolean) =>
     req<AuthUser>(`/api/auth/users/${oid}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active }) }),
+
+  // Staff users
+  listStaffUsers: () => req<StaffUser[]>('/api/users'),
+  createStaffUser: (data: Omit<StaffUser, 'user_id'>) =>
+    req<StaffUser>('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  updateStaffUser: (user_id: string, data: Partial<Omit<StaffUser, 'user_id'>>) =>
+    req<StaffUser>(`/api/users/${user_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  deleteStaffUser: (user_id: string) =>
+    req<void>(`/api/users/${user_id}`, { method: 'DELETE' }),
 }

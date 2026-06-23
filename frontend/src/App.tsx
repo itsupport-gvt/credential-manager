@@ -283,7 +283,8 @@ export default function App() {
 
 function AppInner() {
   const { user, loading, authEnabled } = useAuth()
-  const isAdmin = user?.role === 'Admin'
+  // When auth is disabled every session is implicitly Admin
+  const isAdmin = !authEnabled || user?.role === 'Admin'
   const navigate = useNavigate()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>

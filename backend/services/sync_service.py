@@ -664,6 +664,50 @@ def sync_to_excel(db: Session) -> dict[str, int]:
             db.commit()
             logger.info("Pushed %d tenants to Excel.", counts["pushed_tenants"])
 
+        # ---------------------------------------------------------------- #
+        # 4. Users
+        # ---------------------------------------------------------------- #
+        pending_users = (
+            db.query(DBUser)
+            .filter(DBUser.needs_sync == True)  # noqa: E712
+            .all()
+        )
+        if pending_users:
+            user_headers = graph.get_table_headers(config.USER_TABLE)
+            excel_user_rows = graph.get_table_rows(config.USER_TABLE)
+            excel_user_index: dict[str, int] = {}
+            for er in excel_user_rows:
+                em = _str(er.get("Email", ""))
+                if em:
+                    excel_user_index[em] = er["_row_index"]
+
+            for u in pending_users:
+                row_dict = {
+                    "UserID":       u.user_id or "",
+                    "Full_Name":    u.full_name or "",
+                    "Email":        u.email or "",
+                    "Role":         u.role or "",
+                    "Department":   u.department or "",
+                    "Access_Level": u.access_level or "",
+                    "Status":       u.status or "Active",
+                    "Notes":        u.notes or "",
+                }
+                if u.email in excel_user_index:
+                    graph.update_table_row(
+                        config.USER_TABLE,
+                        excel_user_index[u.email],
+                        row_dict,
+                        headers=user_headers,
+                    )
+                else:
+                    graph.add_table_row(config.USER_TABLE, row_dict, headers=user_headers)
+
+                u.needs_sync = False
+                counts["pushed_users"] = counts.get("pushed_users", 0) + 1
+
+            db.commit()
+            logger.info("Pushed %d users to Excel.", counts.get("pushed_users", 0))
+
     except Exception as exc:
         sync_status["state"] = "error"
         sync_status["error"] = str(exc)
