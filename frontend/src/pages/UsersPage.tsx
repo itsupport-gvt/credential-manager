@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../App'
