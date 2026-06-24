@@ -65,6 +65,16 @@ let _msalAccount = null   // cached AccountInfo
 let _msIdToken   = null   // raw JWT ID token (refreshed on each silent acquire)
 
 // ---------------------------------------------------------------------------
+// Auto-sync state — Electron-driven loop that calls the local backend's
+// /api/sync/push and /api/sync/pull every AUTO_SYNC_INTERVAL_MS. Replaces
+// the in-backend daemon-token thread removed in v1.4 (the backend can no
+// longer acquire a Graph token on its own; the renderer's session has one).
+// ---------------------------------------------------------------------------
+
+const AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000  // 60 minutes
+let _autoSyncTimer = null
+
+// ---------------------------------------------------------------------------
 // Logging helper
 // ---------------------------------------------------------------------------
 
@@ -280,6 +290,70 @@ async function fetchBootstrap () {
   } catch (e) {
     log('[bootstrap] fetch threw: ' + e.message)
     return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-sync loop
+// ---------------------------------------------------------------------------
+
+async function runAutoSync () {
+  if (!_msalApp) return  // no auth configured
+
+  const graphToken = await msAcquireGraphToken()
+  if (!graphToken) {
+    // User isn't signed in (or MSAL refresh token expired) — skip this tick.
+    // We'll try again on the next interval. The user will re-sign-in
+    // through the login screen when they next interact with the app.
+    log('[autosync] skipped — no Graph token available')
+    return
+  }
+
+  const baseUrl  = `http://127.0.0.1:${currentPort}`
+  const headers  = {
+    'Content-Type':      'application/json',
+    'X-App-Token':       APP_SECRET_TOKEN,
+    'X-MS-Graph-Token':  graphToken,
+    'Authorization':     `Bearer ${_msIdToken || ''}`,
+  }
+
+  // Tiny localhost-only fetch helper using built-in http module
+  const httpMod = require('http')
+  const postJson = (path) => new Promise((resolve) => {
+    const req = httpMod.request(`${baseUrl}${path}`, { method: 'POST', headers, timeout: 120_000 }, (res) => {
+      let body = ''
+      res.setEncoding('utf-8')
+      res.on('data', (chunk) => { body += chunk })
+      res.on('end', () => resolve({ status: res.statusCode, body }))
+    })
+    req.on('error',   (e) => resolve({ status: 0, body: e.message }))
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, body: 'timeout' }) })
+    req.end()
+  })
+
+  try {
+    const push = await postJson('/api/sync/push')
+    log(`[autosync] push HTTP ${push.status}`)
+    const pull = await postJson('/api/sync/pull')
+    log(`[autosync] pull HTTP ${pull.status}`)
+  } catch (e) {
+    log('[autosync] error: ' + e.message)
+  }
+}
+
+function startAutoSync () {
+  if (_autoSyncTimer) return  // already running
+  _autoSyncTimer = setInterval(() => {
+    runAutoSync().catch((e) => log('[autosync] unhandled: ' + e.message))
+  }, AUTO_SYNC_INTERVAL_MS)
+  log(`[autosync] started (interval=${AUTO_SYNC_INTERVAL_MS / 1000}s)`)
+}
+
+function stopAutoSync () {
+  if (_autoSyncTimer) {
+    clearInterval(_autoSyncTimer)
+    _autoSyncTimer = null
+    log('[autosync] stopped')
   }
 }
 
@@ -746,6 +820,7 @@ ipcMain.handle('setup-complete', async (_event, data) => {
     if (!mainWindow) createMainWindow(currentPort)
     else mainWindow.loadURL(`http://127.0.0.1:${currentPort}`)
     if (splashWindow) { splashWindow.destroy(); splashWindow = null }
+    startAutoSync()
     return { ok: true }
   } catch (err) {
     if (splashWindow) { splashWindow.destroy(); splashWindow = null }
@@ -960,6 +1035,7 @@ app.whenReady().then(async () => {
     await pollHealth(currentPort, 35000)
     createMainWindow(currentPort)                                    // create first
     if (splashWindow) { splashWindow.destroy(); splashWindow = null } // then close splash
+    startAutoSync()
   } catch (err) {
     if (splashWindow) { splashWindow.destroy(); splashWindow = null }
     const choice = await dialog.showMessageBox({
@@ -999,6 +1075,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   log('=== before-quit: killing backend ===')
+  stopAutoSync()
   killBackend()
 })
 
