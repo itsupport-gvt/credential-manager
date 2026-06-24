@@ -58,6 +58,9 @@ contextBridge.exposeInMainWorld('credManager', {
   onUpdateAvailable: (cb) => {
     ipcRenderer.on('update-available', (_event, info) => cb(info))
   },
+  onUpdateNotAvailable: (cb) => {
+    ipcRenderer.on('update-not-available', () => cb())
+  },
   onUpdateProgress: (cb) => {
     ipcRenderer.on('update-download-progress', (_event, info) => cb(info))
   },

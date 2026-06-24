@@ -200,9 +200,9 @@ function UserMenu() {
         title={`${user.name} (${user.role})`}
         style={{
           display: 'flex', alignItems: 'center', gap: 7, height: 30,
-          padding: '0 8px', border: '1px solid rgba(255,255,255,.15)',
-          borderRadius: 20, background: 'rgba(255,255,255,.06)',
-          color: '#fff', cursor: 'pointer', fontSize: 12,
+          padding: '0 8px', border: `1px solid ${H_BORDER}`,
+          borderRadius: 20, background: 'var(--h-hover-bg)',
+          color: H_TEXT_ACTIVE, cursor: 'pointer', fontSize: 12,
           fontFamily: "'Google Sans', sans-serif", fontWeight: 600,
         }}
       >
@@ -316,6 +316,24 @@ function AppInner() {
     win.credManager?.getTheme?.().then(t => {
       if (t === 'dark' || t === 'light') setThemeState(t)
     }).catch(() => {})
+  }, [])
+
+  // Global auto-update event listeners — register once so toasts fire regardless of active page
+  useEffect(() => {
+    type UpdateBridge = Window & {
+      credManager?: {
+        onUpdateAvailable?:    (cb: (info: { version: string }) => void) => void
+        onUpdateNotAvailable?: (cb: () => void) => void
+      }
+    }
+    const win = window as UpdateBridge
+    win.credManager?.onUpdateAvailable?.((info) => {
+      showToast(`Update v${info.version} available — downloading in background`, 'info')
+    })
+    win.credManager?.onUpdateNotAvailable?.(() => {
+      showToast('You\'re on the latest version', 'success')
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

@@ -684,6 +684,9 @@ function setupAutoUpdater () {
 
   autoUpdater.on('update-not-available', () => {
     log('[updater] already up to date')
+    if (mainWindow) {
+      mainWindow.webContents.send('update-not-available')
+    }
   })
 
   autoUpdater.on('download-progress', (progress) => {

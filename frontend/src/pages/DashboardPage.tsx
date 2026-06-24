@@ -3,14 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { Stats } from '../lib/types'
 
-const STATUS_COLORS: Record<string, string> = {
-  Active: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20', 
-  Inactive: 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20', 
-  Expired: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-500/10 border-red-200 dark:border-red-500/20', 
-  Compromised: 'text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20', 
-  Archived: 'text-slate-600 bg-slate-50 dark:text-slate-400 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/20',
-}
-
 const STATUS_BARS: Record<string, string> = {
   Active: 'bg-emerald-500', 
   Inactive: 'bg-amber-500', 
@@ -93,15 +85,6 @@ function DataRow({ label, count, total, barColor, suffix = '' }: { label: string
         {count}{suffix}
       </div>
     </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colorClass = STATUS_COLORS[status] || 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800 dark:border-slate-700'
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colorClass}`}>
-      {status}
-    </span>
   )
 }
 

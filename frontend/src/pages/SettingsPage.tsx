@@ -27,7 +27,7 @@ const inp: React.CSSProperties = {
 
 function Card({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="md-card" style={{ overflow: 'hidden' }}>
+    <div className="md-card" style={{ overflow: 'hidden', breakInside: 'avoid', marginBottom: 16 }}>
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span className="icon icon-md" style={{ color: 'var(--primary)' }}>{icon}</span>
         <div style={{ fontWeight: 600, fontFamily: "'Google Sans', sans-serif", fontSize: 14, color: 'var(--text-1)' }}>{title}</div>
@@ -139,7 +139,7 @@ export default function SettingsPage() {
     if (!isElectron || !window.credManager) return
     try {
       const r = await window.credManager.checkForUpdates()
-      if (r.ok) showToast('Checking for updates…', 'info')
+      if (r.ok) showToast('Checking for updates — result will appear shortly', 'info')
       else showToast(r.error || 'Update check failed', 'error')
     } catch (e) { showToast(e instanceof Error ? e.message : 'Update check failed', 'error') }
   }
@@ -191,7 +191,7 @@ export default function SettingsPage() {
         <div className="page-subtitle">SharePoint sync and application configuration</div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px', alignItems: 'start' }}>
+      <div style={{ columnWidth: 400, columnGap: 16 }}>
         {/* Sync Status */}
         <Card title="Sync Status" icon="cloud_sync">
           {syncLoading ? (
