@@ -304,88 +304,33 @@
   <div class="body">
     <div id="errorBanner" class="error-banner" role="alert"></div>
 
-    <form id="setupForm" novalidate>
+    <!-- Step 1: sign in with Microsoft (always shown first; auto-fills below) -->
+    <div id="signedOutPanel">
+      <p style="font-size:13px;color:var(--clr-text-muted);line-height:1.5;margin-bottom:14px">
+        Sign in with your Microsoft 365 account. We'll auto-discover your
+        organisation's tenant ID and check SharePoint for a shared configuration.
+      </p>
+      <button type="button" id="btnSignIn" class="btn btn-primary" style="width:100%;justify-content:center;height:42px">
+        Sign in with Microsoft
+      </button>
+    </div>
 
-      <!-- Tenant ID -->
-      <div class="field">
-        <label for="tenantId">SharePoint Tenant ID <span class="required">*</span></label>
-        <div class="input-wrap">
-          <input
-            type="text"
-            id="tenantId"
-            name="tenantId"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-        <div class="field-error" id="err-tenantId">Tenant ID is required.</div>
-        <div class="field-hint">Found in Azure Active Directory &rsaquo; Properties</div>
+    <form id="setupForm" novalidate style="display:none">
+
+      <!-- Read-only banner showing who we're signed in as + auto-detected tenant -->
+      <div id="signedInBanner" style="
+        display:flex; align-items:center; gap:10px;
+        padding:10px 12px; margin-bottom:16px;
+        background:#f0fdf4; border:1px solid #bbf7d0; border-radius:var(--radius-sm);
+        font-size:12.5px; color:#15803d;
+      ">
+        <span style="font-weight:700">✓</span>
+        <span id="signedInText">Signed in</span>
       </div>
 
-      <!-- Client ID -->
+      <!-- File URL — the only field the admin still needs to provide. -->
       <div class="field">
-        <label for="clientId">SharePoint Client ID <span class="required">*</span></label>
-        <div class="input-wrap">
-          <input
-            type="text"
-            id="clientId"
-            name="clientId"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-        <div class="field-error" id="err-clientId">Client ID is required.</div>
-        <div class="field-hint">Application (client) ID of your Azure App Registration</div>
-      </div>
-
-      <!-- Auth Client ID (optional – user login via Entra) -->
-      <div class="field">
-        <label for="authClientId">User Login App Client ID</label>
-        <div class="input-wrap">
-          <input
-            type="text"
-            id="authClientId"
-            name="authClientId"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (optional)"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-        <div class="field-hint">Client ID of the <strong>credapp-365-auth</strong> app registration used for Microsoft user login. Leave blank to disable user authentication.</div>
-      </div>
-
-      <!-- Client Secret -->
-      <div class="field">
-        <label for="clientSecret">SharePoint Client Secret <span class="required">*</span></label>
-        <div class="input-wrap">
-          <input
-            type="password"
-            id="clientSecret"
-            name="clientSecret"
-            placeholder="Paste your client secret value"
-            autocomplete="new-password"
-          />
-          <button type="button" class="toggle-pw" id="toggleSecret" aria-label="Show/hide secret" tabindex="-1">
-            <!-- eye icon -->
-            <svg id="eyeOpen" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
-              <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <svg id="eyeClosed" style="display:none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-              <line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <div class="field-error" id="err-clientSecret">Client Secret is required.</div>
-        <div class="field-hint">Client secret value (not the secret ID)</div>
-      </div>
-
-      <!-- File URL -->
-      <div class="field">
-        <label for="fileUrl">SharePoint File URL <span class="required">*</span></label>
+        <label for="fileUrl">SharePoint Workbook URL <span class="required">*</span></label>
         <div class="input-wrap">
           <input
             type="text"
@@ -397,15 +342,15 @@
           />
         </div>
         <div class="field-error" id="err-fileUrl">A valid SharePoint URL is required.</div>
-        <div class="field-hint">Direct link to the Excel workbook in SharePoint</div>
+        <div class="field-hint">
+          Direct link to the Excel workbook. After saving, this is uploaded to
+          a shared bootstrap so other teammates' machines auto-configure on first sign-in.
+        </div>
       </div>
 
       <hr class="divider" />
 
       <div class="actions">
-        <button type="button" id="btnTest" class="btn btn-secondary">
-          Test Connection
-        </button>
         <button type="submit" id="btnSave" class="btn btn-primary">
           Save &amp; Launch
         </button>
@@ -429,43 +374,10 @@
   </div>
 
   <script>
-    // ── Utility helpers ───────────────────────────────────────────
-    const $  = (id) => document.getElementById(id)
-    const fields = ['tenantId', 'clientId', 'clientSecret', 'fileUrl']
+    const $ = (id) => document.getElementById(id)
 
-    // Pre-fill from existing config if re-opening settings
-    async function prefill () {
-      if (!window.credManager) return
-      try {
-        const cfg = await window.credManager.getConfig()
-        if (!cfg) return
-        $('tenantId').value     = cfg.tenantId     || ''
-        $('clientId').value     = cfg.clientId     || ''
-        $('authClientId').value = cfg.authClientId || ''
-        $('clientSecret').value = cfg.clientSecret || ''
-        $('fileUrl').value      = cfg.fileUrl      || ''
-      } catch (_) { /* ignore */ }
-    }
-    prefill()
-
-    // ── Show/hide password toggle ─────────────────────────────────
-    $('toggleSecret').addEventListener('click', () => {
-      const inp = $('clientSecret')
-      const showing = inp.type === 'text'
-      inp.type = showing ? 'password' : 'text'
-      $('eyeOpen').style.display  = showing ? '' : 'none'
-      $('eyeClosed').style.display = showing ? 'none' : ''
-    })
-
-    // ── Validation ────────────────────────────────────────────────
-    function clearErrors () {
-      fields.forEach(f => {
-        $(f).classList.remove('has-error')
-        $('err-' + f).classList.remove('visible')
-      })
-      $('errorBanner').classList.remove('visible')
-      $('errorBanner').textContent = ''
-    }
+    let _signedInUser = null
+    let _tenantId     = ''
 
     function showFieldError (field, msg) {
       $(field).classList.add('has-error')
@@ -473,13 +385,19 @@
       $('err-' + field).classList.add('visible')
     }
 
+    function clearFieldError (field) {
+      $(field).classList.remove('has-error')
+      $('err-' + field).classList.remove('visible')
+    }
+
     function showBanner (msg) {
       $('errorBanner').textContent = msg
       $('errorBanner').classList.add('visible')
     }
-
-    function isGuid (val) {
-      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim())
+    function clearBanner () {
+      $('errorBanner').classList.remove('visible')
+      $('errorBanner').textContent = ''
+      $('errorBanner').style = ''
     }
 
     function isSharePointUrl (val) {
@@ -489,77 +407,92 @@
       } catch (_) { return false }
     }
 
-    function validateForm () {
-      clearErrors()
-      let ok = true
-
-      const tid = $('tenantId').value.trim()
-      const cid = $('clientId').value.trim()
-      const cs  = $('clientSecret').value.trim()
-      const fu  = $('fileUrl').value.trim()
-
-      if (!tid) { showFieldError('tenantId', 'Tenant ID is required.'); ok = false }
-      else if (!isGuid(tid)) { showFieldError('tenantId', 'Must be a valid GUID (xxxxxxxx-xxxx-...).'); ok = false }
-
-      if (!cid) { showFieldError('clientId', 'Client ID is required.'); ok = false }
-      else if (!isGuid(cid)) { showFieldError('clientId', 'Must be a valid GUID (xxxxxxxx-xxxx-...).'); ok = false }
-
-      if (!cs) { showFieldError('clientSecret', 'Client Secret is required.'); ok = false }
-
-      if (!fu) { showFieldError('fileUrl', 'SharePoint File URL is required.'); ok = false }
-      else if (!isSharePointUrl(fu)) { showFieldError('fileUrl', 'Must be a valid https://...sharepoint.com/... URL.'); ok = false }
-
-      return ok
-    }
-
-    function getFormData () {
-      return {
-        tenantId:     $('tenantId').value.trim(),
-        clientId:     $('clientId').value.trim(),
-        authClientId: $('authClientId').value.trim(),
-        clientSecret: $('clientSecret').value.trim(),
-        fileUrl:      $('fileUrl').value.trim(),
-      }
-    }
-
     function setLoading (on) {
-      $('btnSave').disabled = on
-      $('btnTest').disabled = on
+      $('btnSave').disabled  = on
+      $('btnSignIn').disabled = on
       $('loadingOverlay').classList.toggle('visible', on)
     }
 
-    // ── Test Connection (client-side field validation only) ───────
-    $('btnTest').addEventListener('click', () => {
-      clearErrors()
-      const ok = validateForm()
-      if (ok) {
-        // All fields look correct; actual SharePoint test happens when the backend starts.
-        $('errorBanner').style.background = '#f0fdf4'
-        $('errorBanner').style.borderColor = '#bbf7d0'
-        $('errorBanner').style.color = '#15803d'
-        $('errorBanner').textContent = 'All fields are valid. Click "Save & Launch" to start the backend and test the SharePoint connection.'
-        $('errorBanner').classList.add('visible')
+    // ── After sign-in: show the form, populate signed-in banner, try bootstrap
+    async function onSignedIn (user) {
+      _signedInUser = user
+      _tenantId     = (await window.credManager.getMsTenantId()) || ''
+
+      $('signedOutPanel').style.display = 'none'
+      $('setupForm').style.display = ''
+      $('signedInText').textContent =
+        `Signed in as ${user.name || user.email} · Tenant ${_tenantId.slice(0,8) || '?'}…`
+
+      // Try to fetch existing bootstrap so admins editing settings on the
+      // shared config see the current values.
+      try {
+        const bs = await window.credManager.fetchBootstrap()
+        if (bs && bs.fileUrl && !$('fileUrl').value) {
+          $('fileUrl').value = bs.fileUrl
+          const banner = $('errorBanner')
+          banner.textContent = 'Loaded existing configuration from SharePoint ✓'
+          banner.style.background  = '#f0fdf4'
+          banner.style.borderColor = '#bbf7d0'
+          banner.style.color       = '#15803d'
+          banner.classList.add('visible')
+        }
+      } catch (_) { /* best-effort */ }
+    }
+
+    // ── Pre-fill from existing local config if re-opening settings
+    async function prefillFromLocalConfig () {
+      if (!window.credManager) return
+      try {
+        const cfg = await window.credManager.getConfig()
+        if (cfg && cfg.fileUrl) $('fileUrl').value = cfg.fileUrl
+        // If we already have an MSAL session cached, jump straight to the form.
+        const user = await window.credManager.getMsUser()
+        if (user) onSignedIn(user)
+      } catch (_) { /* ignore */ }
+    }
+    prefillFromLocalConfig()
+
+    // ── Sign in with Microsoft (kicks off MSAL interactive flow in Electron main)
+    $('btnSignIn').addEventListener('click', async () => {
+      clearBanner()
+      if (!window.credManager) { showBanner('Electron API not available.'); return }
+      setLoading(true)
+      try {
+        const result = await window.credManager.msLogin()
+        if (!result || !result.ok) {
+          showBanner(result && result.error ? result.error : 'Sign-in cancelled')
+          setLoading(false)
+          return
+        }
+        await onSignedIn(result.user)
+      } catch (err) {
+        showBanner('Sign-in failed: ' + err.message)
+      } finally {
+        setLoading(false)
       }
     })
 
-    // ── Submit / Save & Launch ────────────────────────────────────
+    // ── Submit / Save & Launch
     $('setupForm').addEventListener('submit', async (e) => {
       e.preventDefault()
+      clearBanner()
+      clearFieldError('fileUrl')
 
-      // Reset any test-connection styling
-      $('errorBanner').style = ''
+      const fu = $('fileUrl').value.trim()
+      if (!fu)                       { showFieldError('fileUrl', 'SharePoint workbook URL is required.'); return }
+      if (!isSharePointUrl(fu))      { showFieldError('fileUrl', 'Must be a valid https://...sharepoint.com/... URL.'); return }
+      if (!_signedInUser)            { showBanner('Please sign in with Microsoft first.'); return }
+      if (!window.credManager)       { showBanner('Electron API not available.'); return }
 
-      if (!validateForm()) return
-
-      const data = getFormData()
-
-      if (!window.credManager) {
-        showBanner('Electron API not available. Are you running inside the app?')
-        return
+      const data = {
+        tenantId:     _tenantId,
+        authClientId: '',    // main.js falls back to its baked-in default
+        clientId:     '',    // legacy field — kept blank in delegated-only mode
+        clientSecret: '',    // legacy field — kept blank in delegated-only mode
+        fileUrl:      fu,
       }
 
       setLoading(true)
-
       try {
         const result = await window.credManager.setupComplete(data)
         if (result && result.ok === false) {
@@ -567,7 +500,6 @@
           showBanner('Backend failed to start: ' + (result.error || 'Unknown error'))
           return
         }
-        // Success – show success overlay; window closes from main process
         $('loadingOverlay').classList.remove('visible')
         $('successOverlay').classList.add('visible')
       } catch (err) {

@@ -124,27 +124,43 @@ function _createMsalCachePlugin () {
   }
 }
 
+// Fallback auth client ID baked into the build — used during the very first
+// run when no config.json exists yet, so we can sign the user in BEFORE
+// knowing the tenant or downloading the bootstrap. Override at runtime by
+// setting AUTH_CLIENT_ID in the saved config.
+const _DEFAULT_AUTH_CLIENT_ID = process.env.CRED_AUTH_CLIENT_ID || ''
+
 function initMsal (config) {
-  if (!config || !config.tenantId || !config.authClientId) {
-    log('[msal] auth not configured – login disabled')
+  // Authority defaults to "organizations" (multi-tenant) until we know which
+  // tenant the user belongs to — we discover it from the ID token's `tid`
+  // claim on first sign-in.
+  const authClientId = (config && config.authClientId) || _DEFAULT_AUTH_CLIENT_ID
+  const tenantId     = (config && config.tenantId) || ''
+
+  if (!authClientId) {
+    log('[msal] auth not configured – login disabled (no authClientId)')
     _msalApp = null
     return
   }
 
+  const authority = tenantId
+    ? `https://login.microsoftonline.com/${tenantId}`
+    : 'https://login.microsoftonline.com/organizations'
+
   const msalConfig = {
-    auth: {
-      clientId:  config.authClientId,
-      authority: `https://login.microsoftonline.com/${config.tenantId}`,
-    },
+    auth: { clientId: authClientId, authority },
     cache: { cachePlugin: _createMsalCachePlugin() },
     system: { loggerOptions: { logLevel: msal.LogLevel.Warning, piiLoggingEnabled: false } },
   }
 
   _msalApp = new msal.PublicClientApplication(msalConfig)
-  log('[msal] initialised for tenant ' + config.tenantId)
+  log(`[msal] initialised (clientId=${authClientId.slice(0,8)}… authority=${authority})`)
 }
 
+// Scopes for ID-token acquisition (backend /api/auth/me)
 const _MSAL_SCOPES = ['openid', 'profile', 'email', 'offline_access']
+// Scopes for Microsoft Graph delegated calls (SharePoint workbook + bootstrap)
+const _GRAPH_SCOPES = ['User.Read', 'Files.ReadWrite.All', 'Sites.ReadWrite.All']
 
 async function msAcquireSilent () {
   if (!_msalApp) return null
@@ -195,6 +211,113 @@ function _msUserFromResult (result) {
     email: result.account.username    || '',
     oid:   result.account.localAccountId || '',
     token: result.idToken             || '',
+  }
+}
+
+// Decode the `tid` (tenant id) claim from the cached ID token. Returns '' if unavailable.
+function _decodeTenantIdFromIdToken () {
+  if (!_msIdToken) return ''
+  try {
+    const payload = _msIdToken.split('.')[1]
+    const padded  = payload + '='.repeat((4 - payload.length % 4) % 4)
+    const json    = Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8')
+    return JSON.parse(json).tid || ''
+  } catch (e) {
+    log('[msal] tid decode failed: ' + e.message)
+    return ''
+  }
+}
+
+// Acquire a Microsoft Graph access token (separate from the ID token).
+async function msAcquireGraphToken () {
+  if (!_msalApp) return null
+  try {
+    const accounts = await _msalApp.getTokenCache().getAllAccounts()
+    if (!accounts || accounts.length === 0) return null
+    if (!_msalAccount && accounts.length > 1) return null
+    const account = _msalAccount || accounts[0]
+    const result  = await _msalApp.acquireTokenSilent({ scopes: _GRAPH_SCOPES, account })
+    return result ? result.accessToken : null
+  } catch (e) {
+    log('[msal] graph token acquire failed: ' + e.message)
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap (shared SharePoint config) helpers
+// ---------------------------------------------------------------------------
+
+const BOOTSTRAP_PATH = '/sites/root/drive/root:/Credential Manager/bootstrap.json'
+
+async function fetchBootstrap () {
+  const token = await msAcquireGraphToken()
+  if (!token) return null
+  try {
+    const httpsMod = require('https')
+    return await new Promise((resolve) => {
+      const req = httpsMod.request({
+        method:   'GET',
+        hostname: 'graph.microsoft.com',
+        path:     `/v1.0${BOOTSTRAP_PATH}:/content`,
+        headers:  { Authorization: `Bearer ${token}` },
+      }, (res) => {
+        if (res.statusCode === 404) { resolve(null); res.resume(); return }
+        if (res.statusCode !== 200) {
+          log(`[bootstrap] fetch returned ${res.statusCode}`)
+          resolve(null); res.resume(); return
+        }
+        let body = ''
+        res.setEncoding('utf-8')
+        res.on('data', (chunk) => { body += chunk })
+        res.on('end', () => {
+          try { resolve(JSON.parse(body)) } catch { resolve(null) }
+        })
+      })
+      req.on('error', (e) => { log('[bootstrap] fetch error: ' + e.message); resolve(null) })
+      req.end()
+    })
+  } catch (e) {
+    log('[bootstrap] fetch threw: ' + e.message)
+    return null
+  }
+}
+
+async function uploadBootstrap (bootstrap) {
+  const token = await msAcquireGraphToken()
+  if (!token) return { ok: false, error: 'No Graph token available — sign in first' }
+  try {
+    const httpsMod = require('https')
+    const payload  = Buffer.from(JSON.stringify(bootstrap, null, 2), 'utf-8')
+    return await new Promise((resolve) => {
+      const req = httpsMod.request({
+        method:   'PUT',
+        hostname: 'graph.microsoft.com',
+        path:     `/v1.0${BOOTSTRAP_PATH}:/content`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Content-Length': payload.length,
+        },
+      }, (res) => {
+        let body = ''
+        res.setEncoding('utf-8')
+        res.on('data', (chunk) => { body += chunk })
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ ok: true })
+          } else {
+            log(`[bootstrap] upload ${res.statusCode}: ${body}`)
+            resolve({ ok: false, error: `HTTP ${res.statusCode}` })
+          }
+        })
+      })
+      req.on('error', (e) => resolve({ ok: false, error: e.message }))
+      req.write(payload)
+      req.end()
+    })
+  } catch (e) {
+    return { ok: false, error: e.message }
   }
 }
 
@@ -579,10 +702,36 @@ ipcMain.handle('get-ms-token', async () => {
   return result ? result.idToken : null
 })
 
+ipcMain.handle('get-ms-graph-token', async () => {
+  return await msAcquireGraphToken()
+})
+
+ipcMain.handle('get-ms-tenant-id', async () => {
+  // Ensure we have a fresh ID token, then decode its `tid` claim.
+  await msAcquireSilent()
+  return _decodeTenantIdFromIdToken()
+})
+
+ipcMain.handle('fetch-bootstrap', async () => {
+  return await fetchBootstrap()
+})
+
+ipcMain.handle('upload-bootstrap', async (_event, bootstrap) => {
+  return await uploadBootstrap(bootstrap)
+})
+
 ipcMain.handle('setup-complete', async (_event, data) => {
   writeConfig(data)
   writeEnvFile(data, currentPort)
   initMsal(data)
+
+  // Upload bootstrap.json so any teammate's next install is touch-free.
+  // Best-effort — failure here doesn't block startup.
+  if (data && data.fileUrl) {
+    uploadBootstrap({ fileUrl: data.fileUrl })
+      .then(r => log(`[bootstrap] upload after setup: ${JSON.stringify(r)}`))
+      .catch(e => log('[bootstrap] upload error: ' + e.message))
+  }
 
   if (setupWindow) { setupWindow.close(); setupWindow = null }
 
@@ -756,13 +905,44 @@ app.whenReady().then(async () => {
   }
 
   // Read config
-  const config = readConfig()
+  let config = readConfig()
 
   if (!config) {
-    // First run – show setup wizard
-    log('No config found – opening setup window')
-    createSetupWindow()
-    return
+    // First run on this machine — try to bootstrap from SharePoint using the
+    // user's M365 sign-in BEFORE asking the user to type anything.
+    //
+    // Bootstrap requires an authClientId baked into the build (or env var).
+    // Without one, we can't sign the user in, so we fall back to the legacy
+    // manual setup form.
+    if (_DEFAULT_AUTH_CLIENT_ID) {
+      log('No local config – initialising MSAL with default authority for bootstrap')
+      initMsal(null)  // uses _DEFAULT_AUTH_CLIENT_ID + organizations authority
+
+      // Attempt silent acquire first (in case this user has signed in before
+      // on another app that shares the MSAL cache — rare but free to try).
+      const silent = await msAcquireSilent()
+      if (silent) {
+        log('[bootstrap] silent acquire succeeded — fetching bootstrap.json')
+        const bs = await fetchBootstrap()
+        if (bs && bs.fileUrl) {
+          config = {
+            tenantId:     _decodeTenantIdFromIdToken() || '',
+            authClientId: _DEFAULT_AUTH_CLIENT_ID,
+            clientId:     '',  // no longer needed (delegated-only)
+            clientSecret: '',  // no longer needed (delegated-only)
+            fileUrl:      bs.fileUrl,
+          }
+          writeConfig(config)
+          log('[bootstrap] config auto-written from SharePoint bootstrap')
+        }
+      }
+    }
+
+    if (!config) {
+      log('No config and no usable bootstrap – opening setup window')
+      createSetupWindow()
+      return
+    }
   }
 
   // Config exists – write env, init MSAL, and start backend

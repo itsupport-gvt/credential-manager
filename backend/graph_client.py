@@ -1,8 +1,10 @@
 """
 graph_client.py – Microsoft Graph API client for SharePoint / Excel operations.
 
-Uses MSAL (client-credentials flow) for authentication and httpx for HTTP.
-Token is cached in-process and refreshed automatically on expiry.
+As of v1.4 this client uses the *signed-in user's delegated token*, forwarded
+by Electron via the X-MS-Graph-Token request header. The token is passed into
+the GraphClient constructor at request time; the previous client-credentials
+(daemon) flow has been removed.
 
 Share URL resolution:
   SharePoint share URL → base64url token → /shares/{token}/driveItem
@@ -16,7 +18,6 @@ import logging
 from typing import Any
 
 import httpx
-import msal
 
 import config
 
@@ -33,55 +34,25 @@ def _encode_share_url(url: str) -> str:
 
 
 class GraphClient:
-    """Thin wrapper around Microsoft Graph workbook/table endpoints."""
+    """Thin wrapper around Microsoft Graph workbook/table endpoints.
 
-    def __init__(self) -> None:
-        self._app: msal.ConfidentialClientApplication | None = None
-        self._token: str | None = None
+    Construct one per request — the token is short-lived and tied to a user.
+    """
+
+    def __init__(self, token: str) -> None:
+        if not token:
+            raise RuntimeError("GraphClient requires a delegated access token.")
+        self._token: str = token
         self._drive_id: str | None = None
         self._item_id: str | None = None
 
     # ------------------------------------------------------------------
-    # Auth
+    # Headers
     # ------------------------------------------------------------------
-
-    def _get_app(self) -> msal.ConfidentialClientApplication:
-        if self._app is None:
-            if not all([config.TENANT_ID, config.CLIENT_ID, config.CLIENT_SECRET]):
-                raise RuntimeError(
-                    "Azure AD credentials not configured. "
-                    "Set SHAREPOINT_TENANT_ID, SHAREPOINT_CLIENT_ID, "
-                    "SHAREPOINT_CLIENT_SECRET in .env"
-                )
-            self._app = msal.ConfidentialClientApplication(
-                client_id=config.CLIENT_ID,
-                client_credential=config.CLIENT_SECRET,
-                authority=f"https://login.microsoftonline.com/{config.TENANT_ID}",
-            )
-        return self._app
-
-    def _acquire_token(self) -> str:
-        """Acquire (or return cached) access token for Graph API."""
-        scopes = ["https://graph.microsoft.com/.default"]
-        app = self._get_app()
-
-        # Try cache first
-        result = app.acquire_token_silent(scopes, account=None)
-        if result and "access_token" in result:
-            self._token = result["access_token"]
-            return self._token
-
-        # Fresh acquisition
-        result = app.acquire_token_for_client(scopes=scopes)
-        if "access_token" not in result:
-            error = result.get("error_description", result.get("error", "unknown"))
-            raise RuntimeError(f"MSAL token acquisition failed: {error}")
-        self._token = result["access_token"]
-        return self._token
 
     def _headers(self) -> dict[str, str]:
         return {
-            "Authorization": f"Bearer {self._acquire_token()}",
+            "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
         }
 
@@ -227,10 +198,3 @@ class GraphClient:
         with httpx.Client(timeout=30) as client:
             resp = client.post(url, headers=self._headers(), json=payload)
             self._raise_for_status(resp, f"add row {table_name}")
-
-
-# ---------------------------------------------------------------------------
-# Module-level singleton
-# ---------------------------------------------------------------------------
-
-graph = GraphClient()

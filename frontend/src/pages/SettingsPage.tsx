@@ -13,6 +13,7 @@ declare global {
       setTheme:       (theme: string) => Promise<{ ok: boolean }>
       openSettings:   () => Promise<{ ok: boolean }>
       checkForUpdates:() => Promise<{ ok: boolean; error?: string }>
+      uploadBootstrap?: (data: { fileUrl: string }) => Promise<{ ok: boolean; error?: string }>
     }
   }
 }
@@ -54,7 +55,6 @@ export default function SettingsPage() {
   const [configLoading, setConfigLoading] = useState(false)
   const [configSaving, setConfigSaving] = useState(false)
   const [config, setConfig] = useState({ tenantId: '', clientId: '', authClientId: '', clientSecret: '', fileUrl: '' })
-  const [showSecret, setShowSecret] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('')
   const [refItems, setRefItems]       = useState<RefDataItem[]>([])
   const [refLoading, setRefLoading]   = useState(true)
@@ -235,46 +235,43 @@ export default function SettingsPage() {
           <Card title="SharePoint configuration">
             {configLoading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {Array.from({ length: 4 }).map((_, i) => (
+                {Array.from({ length: 2 }).map((_, i) => (
                   <div key={i} style={{ height: 40, background: 'var(--surface-2)', borderRadius: 8, animation: 'pulse 1.5s infinite' }} />
                 ))}
               </div>
             ) : (
               <form onSubmit={handleSaveConfig} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 0, lineHeight: 1.5 }}>
+                  SharePoint access now uses your Microsoft 365 sign-in directly — no client secrets
+                  or tenant IDs to manage. The workbook URL is shared with teammates via a bootstrap file.
+                </p>
                 <div>
-                  <label className="md-label">Azure AD Tenant ID</label>
-                  <input className="md-input" type="text" value={config.tenantId} onChange={e => setConfig(c => ({ ...c, tenantId: e.target.value }))} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  <label className="md-label">SharePoint Workbook URL</label>
+                  <input
+                    className="md-input"
+                    type="url"
+                    value={config.fileUrl}
+                    onChange={e => setConfig(c => ({ ...c, fileUrl: e.target.value }))}
+                    placeholder="https://…/Credentials.xlsx"
+                  />
                 </div>
-                <div>
-                  <label className="md-label">SharePoint Client ID</label>
-                  <input className="md-input" type="text" value={config.clientId} onChange={e => setConfig(c => ({ ...c, clientId: e.target.value }))} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-                </div>
-                <div>
-                  <label className="md-label">User Login App Client ID</label>
-                  <input className="md-input" type="text" value={config.authClientId} onChange={e => setConfig(c => ({ ...c, authClientId: e.target.value }))} placeholder="Leave blank to disable Microsoft login" />
-                </div>
-                <div>
-                  <label className="md-label">Client Secret</label>
-                  <div style={{ position: 'relative' }}>
-                    <input className="md-input" type={showSecret ? 'text' : 'password'} value={config.clientSecret} onChange={e => setConfig(c => ({ ...c, clientSecret: e.target.value }))} style={{ paddingRight: 80 }} />
-                    <button type="button" onClick={() => setShowSecret(s => !s)} style={{
-                      position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--primary)', fontSize: 13, fontWeight: 500,
-                      display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px',
-                    }}>
-                      <span className="icon icon-sm">{showSecret ? 'visibility_off' : 'visibility'}</span>
-                      {showSecret ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="md-label">SharePoint File URL</label>
-                  <input className="md-input" type="url" value={config.fileUrl} onChange={e => setConfig(c => ({ ...c, fileUrl: e.target.value }))} placeholder="https://…/Credentials.xlsx" />
-                </div>
-                <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                   <button type="submit" disabled={configSaving} className="md-btn md-btn-primary">
                     {configSaving ? 'Saving…' : <><span className="icon icon-sm">save</span>Save configuration</>}
+                  </button>
+                  <button
+                    type="button"
+                    className="md-btn md-btn-outlined"
+                    onClick={async () => {
+                      if (!window.credManager?.uploadBootstrap) {
+                        showToast('Bootstrap upload not available in this build', 'error')
+                        return
+                      }
+                      const r = await window.credManager.uploadBootstrap({ fileUrl: config.fileUrl })
+                      showToast(r.ok ? 'Bootstrap re-uploaded to SharePoint' : (r.error || 'Upload failed'), r.ok ? 'success' : 'error')
+                    }}
+                  >
+                    <span className="icon icon-sm">cloud_upload</span>Re-upload bootstrap
                   </button>
                 </div>
               </form>

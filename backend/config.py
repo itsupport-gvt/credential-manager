@@ -25,7 +25,11 @@ ENV_PATH: Path = _env_path
 load_dotenv(_env_path, override=False)
 
 # ------------------------------------------------------------------
-# Azure AD / MSAL – SharePoint daemon (client credentials)
+# Azure AD / MSAL – legacy daemon fields (deprecated)
+# As of v1.4, SharePoint Graph calls use the signed-in user's delegated token
+# forwarded from Electron via the X-MS-Graph-Token header. These fields are
+# retained only for backward compatibility with older config files and for
+# tenant-id metadata.
 # ------------------------------------------------------------------
 TENANT_ID: str = os.getenv("SHAREPOINT_TENANT_ID", "")
 CLIENT_ID: str = os.getenv("SHAREPOINT_CLIENT_ID", "")

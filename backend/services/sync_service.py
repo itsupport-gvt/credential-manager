@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 import config
 import crypto
-from graph_client import graph
+from graph_client import GraphClient
 from models_db import DBCategory, DBChangeLog, DBCredential, DBReferenceData, DBTenant, DBUser
 
 logger = logging.getLogger(__name__)
@@ -262,7 +262,7 @@ def _str(val: Any) -> str:
 # sync_from_excel
 # ---------------------------------------------------------------------------
 
-def sync_from_excel(db: Session) -> dict[str, int]:
+def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
     """
     Pull all rows from SharePoint workbook tables into SQLite.
 
@@ -520,7 +520,7 @@ def sync_from_excel(db: Session) -> dict[str, int]:
 # sync_to_excel
 # ---------------------------------------------------------------------------
 
-def sync_to_excel(db: Session) -> dict[str, int]:
+def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
     """
     Push pending (needs_sync=True) rows to the SharePoint workbook.
 

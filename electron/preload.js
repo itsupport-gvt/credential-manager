@@ -48,6 +48,18 @@ contextBridge.exposeInMainWorld('credManager', {
   // Fresh ID token string (does silent acquire / refresh) or null
   getMsToken: () => ipcRenderer.invoke('get-ms-token'),
 
+  // Fresh Microsoft Graph access token (delegated, scope: User.Read + Files.ReadWrite.All + Sites.ReadWrite.All)
+  getMsGraphToken: () => ipcRenderer.invoke('get-ms-graph-token'),
+
+  // Tenant ID (`tid` claim) decoded from the signed-in user's ID token
+  getMsTenantId: () => ipcRenderer.invoke('get-ms-tenant-id'),
+
+  // Read the shared bootstrap.json from SharePoint root site (returns null if missing)
+  fetchBootstrap: () => ipcRenderer.invoke('fetch-bootstrap'),
+
+  // Upload bootstrap.json to SharePoint root site (admin only — usually after setup)
+  uploadBootstrap: (data) => ipcRenderer.invoke('upload-bootstrap', data),
+
   // All accounts currently in the MSAL cache (for account picker on login screen)
   getCachedAccounts: () => ipcRenderer.invoke('get-cached-accounts'),
 

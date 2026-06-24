@@ -57,15 +57,42 @@ async function getMsToken(): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Microsoft Graph access token (separate from the ID token; needed for sync
+// endpoints that hit SharePoint via the user's delegated permissions).
+// ---------------------------------------------------------------------------
+
+let _msGraphToken: string | null = null
+let _msGraphTokenAt = 0
+
+async function getMsGraphToken(): Promise<string | null> {
+  if (_msGraphToken && Date.now() - _msGraphTokenAt < _MS_TTL) return _msGraphToken
+  try {
+    const win = window as Window & { credManager?: { getMsGraphToken?: () => Promise<string | null> } }
+    const t = (await win.credManager?.getMsGraphToken?.()) ?? null
+    _msGraphToken   = t
+    _msGraphTokenAt = Date.now()
+  } catch {
+    _msGraphToken = null
+  }
+  return _msGraphToken
+}
+
+// ---------------------------------------------------------------------------
 // Core fetch wrapper
 // ---------------------------------------------------------------------------
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
+async function req<T>(path: string, init?: RequestInit & { graph?: boolean }): Promise<T> {
   const appToken = await getAppToken()
   const msToken  = await getMsToken()
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) }
   if (appToken) headers['X-App-Token']    = appToken
   if (msToken)  headers['Authorization']  = `Bearer ${msToken}`
+
+  // SharePoint sync endpoints need the user's delegated Graph token in a separate header
+  if (init?.graph) {
+    const graphToken = await getMsGraphToken()
+    if (graphToken) headers['X-MS-Graph-Token'] = graphToken
+  }
 
   const res = await fetch(path, { ...init, headers })
 
@@ -168,17 +195,17 @@ export const api = {
   // Stats
   getStats: () => req<Stats>('/api/stats'),
 
-  // Sync
+  // Sync — these need the user's delegated Graph token forwarded to the backend
   pushToExcel: () =>
-    req<{ pushed_credentials: number; pushed_logs: number }>('/api/sync/push', { method: 'POST' }),
+    req<{ pushed_credentials: number; pushed_logs: number }>('/api/sync/push', { method: 'POST', graph: true }),
 
   pullFromExcel: () =>
-    req<{ credentials: number; logs: number }>('/api/sync/pull', { method: 'POST' }),
+    req<{ credentials: number; logs: number }>('/api/sync/pull', { method: 'POST', graph: true }),
 
   getSyncStatus: () => req<SyncStatus>('/api/sync/status'),
 
-  // Admin
-  resetDb: () => req<{ status: string; deleted_credentials: number; deleted_logs: number; synced: unknown }>('/api/admin/reset-db', { method: 'POST' }),
+  // Admin — reset-db re-pulls from Excel, so it also needs the Graph token
+  resetDb: () => req<{ status: string; deleted_credentials: number; deleted_logs: number; synced: unknown }>('/api/admin/reset-db', { method: 'POST', graph: true }),
 
   // Auth
   getMe: () => req<{ auth_enabled: boolean; user: { oid: string; name: string; email: string; role: string } | null }>('/api/auth/me'),

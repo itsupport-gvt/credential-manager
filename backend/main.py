@@ -3,8 +3,13 @@ main.py – FastAPI application entry point for the Credential Manager.
 
 Startup sequence:
   1. Create/migrate SQLite tables.
-  2. If the DB is empty, attempt sync_from_excel (graceful failure).
-  3. Start a background thread that runs sync_to_excel every 60 minutes.
+  2. Seed reference data (categories + dropdown lists).
+
+Sync is now strictly on-demand: each push/pull is triggered by the renderer
+and uses the signed-in user's delegated Graph token (forwarded via the
+X-MS-Graph-Token header). The previous 60-minute background daemon thread
+was removed in v1.4 — without a long-lived client-credentials secret the
+backend has no token to run silently with.
 
 Routes:
   /api/*          – REST API (credentials, tenants, changelog, stats, sync)
@@ -19,17 +24,17 @@ import logging
 import os
 import socket
 import sys
-import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import SessionLocal, create_tables, engine, run_migrations
+from graph_client import GraphClient
 from models import SyncStatusResponse
 from routes.changelog import router as changelog_router
 from routes.credentials import router as credentials_router
@@ -75,30 +80,6 @@ def _get_lan_ip() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Auto-sync background thread
-# ---------------------------------------------------------------------------
-
-_SYNC_INTERVAL_SECONDS = 60 * 60  # 60 minutes
-_stop_auto_sync = threading.Event()
-
-
-def _auto_sync_loop() -> None:
-    """Background thread: push then pull every 60 minutes."""
-    logger.info("Auto-sync thread started (interval=%ds).", _SYNC_INTERVAL_SECONDS)
-    while not _stop_auto_sync.wait(timeout=_SYNC_INTERVAL_SECONDS):
-        db = SessionLocal()
-        try:
-            push = sync_to_excel(db)
-            logger.info("Auto-sync push: %s", push)
-            pull = sync_from_excel(db)
-            logger.info("Auto-sync pull: %s", pull)
-        except Exception as exc:
-            logger.warning("Auto-sync failed: %s", exc)
-        finally:
-            db.close()
-
-
-# ---------------------------------------------------------------------------
 # Lifespan (startup / shutdown)
 # ---------------------------------------------------------------------------
 
@@ -121,33 +102,10 @@ async def lifespan(app: FastAPI):
     finally:
         db0.close()
 
-    # If DB is empty, attempt initial pull from Excel
-    db = SessionLocal()
-    try:
-        from models_db import DBCredential
-        count = db.query(DBCredential).count()
-        if count == 0:
-            logger.info("DB is empty – attempting initial sync from Excel.")
-            try:
-                result = sync_from_excel(db)
-                logger.info("Initial sync complete: %s", result)
-            except Exception as exc:
-                logger.warning(
-                    "Initial sync failed (SharePoint may not be configured): %s", exc
-                )
-    finally:
-        db.close()
-
-    # Start the auto-sync background thread
-    _stop_auto_sync.clear()
-    t = threading.Thread(target=_auto_sync_loop, daemon=True, name="auto-sync")
-    t.start()
-
     yield  # Application is running
 
     # ---- Shutdown ----
     logger.info("Credential Manager shutting down.")
-    _stop_auto_sync.set()
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +129,7 @@ app.add_middleware(
                    "http://localhost:8100",  "http://127.0.0.1:8100"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*", "X-App-Token"],
+    allow_headers=["*", "X-App-Token", "X-MS-Graph-Token"],
 )
 
 # ---------------------------------------------------------------------------
@@ -187,15 +145,30 @@ app.include_router(staff_users_router)
 app.include_router(reference_data_router)
 
 # ---------------------------------------------------------------------------
+# Graph token extraction (delegated, per-request)
+# ---------------------------------------------------------------------------
+
+def _graph_client_from_header(x_ms_graph_token: str | None) -> GraphClient:
+    """Build a GraphClient from the X-MS-Graph-Token header sent by the renderer."""
+    if not x_ms_graph_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing X-MS-Graph-Token header. Sign in with Microsoft to enable SharePoint sync.",
+        )
+    return GraphClient(token=x_ms_graph_token)
+
+
+# ---------------------------------------------------------------------------
 # Sync endpoints
 # ---------------------------------------------------------------------------
 
 @app.post("/api/sync/push", tags=["sync"])
-def sync_push() -> dict:
+def sync_push(x_ms_graph_token: str | None = Header(default=None)) -> dict:
     """Push all pending (needs_sync=True) records to SharePoint Excel."""
+    graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
-        result = sync_to_excel(db)
+        result = sync_to_excel(db, graph)
         return {"status": "ok", "result": result}
     except Exception as exc:
         return JSONResponse(
@@ -207,11 +180,12 @@ def sync_push() -> dict:
 
 
 @app.post("/api/sync/pull", tags=["sync"])
-def sync_pull() -> dict:
+def sync_pull(x_ms_graph_token: str | None = Header(default=None)) -> dict:
     """Pull all rows from SharePoint Excel into SQLite."""
+    graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
-        result = sync_from_excel(db)
+        result = sync_from_excel(db, graph)
         return {"status": "ok", "result": result}
     except Exception as exc:
         return JSONResponse(
@@ -253,14 +227,14 @@ def sync_status_endpoint() -> SyncStatusResponse:
 # ---------------------------------------------------------------------------
 
 @app.post("/api/admin/reset-db", tags=["admin"])
-def reset_database() -> dict:
+def reset_database(x_ms_graph_token: str | None = Header(default=None)) -> dict:
     """
     Wipe all local credential and changelog rows, then re-pull fresh data from
     the SharePoint Excel file. Useful when the source sheet has been rebuilt
     and the local cache is stale.
     """
-    from auth import require_admin
     from models_db import DBCredential, DBChangeLog
+    graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
         deleted_creds = db.query(DBCredential).count()
@@ -268,7 +242,7 @@ def reset_database() -> dict:
         db.query(DBChangeLog).delete()
         db.query(DBCredential).delete()
         db.commit()
-        result = sync_from_excel(db)
+        result = sync_from_excel(db, graph)
         return {
             "status": "ok",
             "deleted_credentials": deleted_creds,
