@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [busy,       setBusy]       = useState(false)
   const [selecting,  setSelecting]  = useState<string | null>(null)
   const [error,      setError]      = useState('')
-  const [accounts,   setAccounts]   = useState<CachedAccount[] | null>(null) // null = loading
+  const [accounts,   setAccounts]   = useState<CachedAccount[] | null>(null)
 
   useEffect(() => {
     const win = window as Bridge
@@ -45,121 +45,113 @@ export default function LoginPage() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', background: 'var(--bg)',
+      minHeight: '100vh', background: 'var(--bg)',
+      padding: 24,
     }}>
       <div style={{
-        width: 400, padding: '40px 36px', borderRadius: 16,
+        width: '100%', maxWidth: 420,
+        padding: '48px 40px',
+        borderRadius: 12,
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        boxShadow: '0 8px 32px rgba(0,0,0,.12)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32,
       }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/assets/cred_manager.svg" alt="logo" style={{ width: 36, height: 36 }} />
-          <div>
-            <div style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700, fontSize: 18, color: 'var(--text-1)' }}>
-              Credential Manager
+
+        {/* Brand */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <img src="/assets/cred_manager.svg" alt="" style={{ width: 48, height: 48 }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              fontFamily: "'Google Sans', sans-serif",
+              fontWeight: 400, fontSize: 22, color: 'var(--text-1)',
+              letterSpacing: -.2,
+            }}>
+              Sign in
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '.5px', textTransform: 'uppercase' }}>
-              Gravity Business Partners
+            <div style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 6 }}>
+              to continue to Credential Manager
             </div>
           </div>
         </div>
 
-        <div style={{ width: '100%', height: 1, background: 'var(--border)' }} />
-
         {/* Loading cached accounts */}
         {isLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 13 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            color: 'var(--text-2)', fontSize: 14,
+          }}>
             <span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>
             Checking for saved accounts…
           </div>
         )}
 
-        {/* Account picker — shown when multiple accounts are cached */}
+        {/* Account picker */}
         {hasCachedAccounts && (
-          <>
-            <div style={{ width: '100%', textAlign: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>
-                Choose an account
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
-                Select a Microsoft account to continue
-              </div>
-            </div>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {accounts!.map(acc => {
+              const initials = acc.name
+                ? acc.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                : acc.email.slice(0, 2).toUpperCase()
+              const isBusy = selecting === acc.homeAccountId
 
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {accounts!.map(acc => {
-                const initials = acc.name
-                  ? acc.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-                  : acc.email.slice(0, 2).toUpperCase()
-                const isBusy = selecting === acc.homeAccountId
-
-                return (
-                  <button
-                    key={acc.homeAccountId}
-                    onClick={() => handleSelect(acc.homeAccountId)}
-                    disabled={selecting !== null}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      width: '100%', padding: '12px 14px',
-                      border: '1px solid var(--border)', borderRadius: 10,
-                      background: 'var(--surface-2)',
-                      cursor: selecting !== null ? 'default' : 'pointer',
-                      opacity: selecting !== null && !isBusy ? 0.55 : 1,
-                      textAlign: 'left', transition: 'all .12s',
-                    }}
-                    onMouseEnter={e => { if (!selecting) e.currentTarget.style.borderColor = 'var(--primary)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
-                  >
+              return (
+                <button
+                  key={acc.homeAccountId}
+                  onClick={() => handleSelect(acc.homeAccountId)}
+                  disabled={selecting !== null}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    width: '100%', padding: '12px 14px',
+                    border: '1px solid var(--border)', borderRadius: 8,
+                    background: 'var(--surface)',
+                    cursor: selecting !== null ? 'default' : 'pointer',
+                    opacity: selecting !== null && !isBusy ? 0.5 : 1,
+                    textAlign: 'left',
+                    transition: 'border-color .12s, background .12s',
+                  }}
+                  onMouseEnter={e => { if (!selecting) e.currentTarget.style.background = 'var(--surface-2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
+                >
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                    background: 'var(--primary)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 500, fontFamily: "'Google Sans', sans-serif",
+                  }}>
+                    {isBusy
+                      ? <span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>
+                      : initials
+                    }
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
-                      width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                      background: 'var(--primary-bg)', color: 'var(--primary)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 14, fontWeight: 700,
+                      fontSize: 14, fontWeight: 500, color: 'var(--text-1)',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
-                      {isBusy
-                        ? <span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>
-                        : initials
-                      }
+                      {acc.name || acc.email}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {acc.name || acc.email}
+                    {acc.name && (
+                      <div style={{
+                        fontSize: 12, color: 'var(--text-2)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {acc.email}
                       </div>
-                      {acc.name && (
-                        <div style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {acc.email}
-                        </div>
-                      )}
-                    </div>
-                    <span className="icon icon-sm" style={{ marginLeft: 'auto', color: 'var(--text-3)', flexShrink: 0 }}>chevron_right</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            <div style={{ width: '100%', height: 1, background: 'var(--border)' }} />
-          </>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         )}
 
-        {/* Sign-in button — always shown when no accounts or as "Use a different account" */}
+        {/* Sign-in button */}
         {!isLoading && (
           <button
             onClick={handleLogin}
             disabled={busy || selecting !== null}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              width: '100%', padding: '11px 0',
-              border: '1px solid var(--border)', borderRadius: 8,
-              background: 'var(--surface-2)',
-              color: 'var(--text-1)',
-              fontSize: 14, fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
-              cursor: busy || selecting !== null ? 'default' : 'pointer',
-              opacity: busy || selecting !== null ? .55 : 1,
-              transition: 'all .15s',
-            }}
+            className="md-btn md-btn-outlined"
+            style={{ width: '100%', height: 44 }}
           >
             <svg width="18" height="18" viewBox="0 0 21 21" fill="none">
               <rect x="1"  y="1"  width="9" height="9" fill="#F25022"/>
@@ -170,28 +162,36 @@ export default function LoginPage() {
             {busy
               ? 'Opening browser…'
               : hasCachedAccounts
-              ? 'Use a different account'
-              : 'Sign in with Microsoft'
-            }
+              ? 'Use another account'
+              : 'Sign in with Microsoft'}
           </button>
         )}
 
         {error && (
           <div style={{
             width: '100%', padding: '10px 14px', borderRadius: 8,
-            background: 'rgba(217,48,37,.08)', border: '1px solid rgba(217,48,37,.25)',
-            color: 'var(--danger)', fontSize: 13, textAlign: 'center',
+            background: 'var(--danger-bg)', color: 'var(--danger)',
+            fontSize: 13, textAlign: 'center',
           }}>
             {error}
           </div>
         )}
 
         {!hasCachedAccounts && !isLoading && (
-          <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.5 }}>
-            Your browser will open for authentication.<br/>
-            Return here after signing in.
+          <div style={{
+            fontSize: 12, color: 'var(--text-3)',
+            textAlign: 'center', lineHeight: 1.6,
+          }}>
+            Your browser will open for authentication. Return here after signing in.
           </div>
         )}
+      </div>
+
+      <div style={{
+        marginTop: 24, fontSize: 12, color: 'var(--text-3)',
+        fontFamily: "'Google Sans', sans-serif",
+      }}>
+        Gravity Business Partners
       </div>
     </div>
   )

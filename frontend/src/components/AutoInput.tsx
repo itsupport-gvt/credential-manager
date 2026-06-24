@@ -1,11 +1,5 @@
 import { useState, useRef, type ChangeEvent } from 'react'
 
-const inp: React.CSSProperties = {
-  width: '100%', padding: '9px 12px', border: '1px solid var(--border)',
-  borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text-1)',
-  outline: 'none', fontFamily: 'Roboto, sans-serif',
-}
-
 interface Props {
   name: string
   value: string
@@ -58,7 +52,7 @@ export function AutoInput({ name, value, onChange, suggestions, placeholder, typ
         value={value}
         required={required}
         placeholder={placeholder}
-        style={inp}
+        className="md-input"
         onChange={e => { onChange(e); setOpen(true); setActive(0) }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -67,26 +61,31 @@ export function AutoInput({ name, value, onChange, suggestions, placeholder, typ
       />
       {open && filtered.length > 0 && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 3px)', left: 0, right: 0, zIndex: 200,
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.18)',
-          maxHeight: 220, overflowY: 'auto',
+          borderRadius: 8, boxShadow: 'var(--shadow-2)',
+          maxHeight: 240, overflowY: 'auto',
+          padding: '4px 0',
         }}>
           {filtered.map((s, i) => (
             <div
               key={s}
               onMouseDown={() => pick(s)}
               style={{
-                padding: '8px 12px', fontSize: 13, cursor: 'pointer',
+                padding: '10px 14px', fontSize: 14, cursor: 'pointer',
                 background: i === active ? 'var(--surface-2)' : 'transparent',
                 color: 'var(--text-1)',
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', gap: 10,
               }}
             >
-              <span className="icon icon-sm" style={{ fontSize: 14, color: 'var(--text-3)', flexShrink: 0 }}>history</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s}</span>
+              <span className="icon icon-sm" style={{ color: 'var(--text-3)', flexShrink: 0 }}>history</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s}</span>
               {i === 0 && (
-                <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)', flexShrink: 0, background: 'var(--surface-2)', padding: '1px 5px', borderRadius: 4 }}>Tab</span>
+                <span style={{
+                  fontSize: 11, color: 'var(--text-3)',
+                  background: 'var(--surface-3)', padding: '2px 6px', borderRadius: 4,
+                  flexShrink: 0,
+                }}>Tab</span>
               )}
             </div>
           ))}

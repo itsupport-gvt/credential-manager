@@ -10,24 +10,39 @@ import { useToast } from '../App'
 function Section({ title, open: defaultOpen = true, children }: { title: string; open?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
-      <button type="button" onClick={() => setOpen(o => !o)} style={{
-        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px',
-        background: 'var(--surface-2)', border: 'none', cursor: 'pointer', textAlign: 'left',
-      }}>
-        <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>{title}</span>
+    <div className="md-card" style={{ marginBottom: 12, overflow: 'hidden', padding: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          textAlign: 'left',
+          fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500,
+          color: 'var(--text-1)',
+        }}
+      >
+        <span>{title}</span>
         <span className="icon icon-sm" style={{ color: 'var(--text-3)' }}>{open ? 'expand_less' : 'expand_more'}</span>
       </button>
-      {open && <div style={{ padding: '16px', background: 'var(--surface)' }}>{children}</div>}
+      {open && (
+        <div style={{ padding: '4px 20px 20px', borderTop: '1px solid var(--border)' }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }
 
 function FR({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
-      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>{label}</div>
-      <div style={{ fontSize: 13, color: 'var(--text-1)', wordBreak: 'break-all' }}>
+    <div style={{
+      display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16,
+      padding: '12px 0', borderBottom: '1px solid var(--border)',
+    }}>
+      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{label}</div>
+      <div style={{ fontSize: 14, color: 'var(--text-1)', wordBreak: 'break-word' }}>
         {value || <span style={{ color: 'var(--text-3)' }}>—</span>}
       </div>
     </div>
@@ -48,8 +63,8 @@ function ChangeLogTable({ credentialId }: { credentialId: string }) {
       .finally(() => setLoading(false))
   }, [credentialId, page])
 
-  if (loading) return <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Loading…</div>
-  if (items.length === 0) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>No change history</div>
+  if (loading) return <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-3)' }}>Loading…</div>
+  if (items.length === 0) return <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-3)' }}>No change history</div>
 
   function ab(a: string) {
     if (a === 'CREATE') return 'badge-active'
@@ -60,36 +75,41 @@ function ChangeLogTable({ credentialId }: { credentialId: string }) {
 
   return (
     <div>
-      <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 12 }}>{total} log entries</div>
+      <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12 }}>{total} log entries</div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: 'var(--surface-2)' }}>
+            <tr>
               {['Timestamp', 'Action', 'Field', 'Old', 'New', 'By'].map(h => (
-                <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>
+                <th key={h} style={{
+                  textAlign: 'left', padding: '10px 12px',
+                  fontSize: 11, fontWeight: 500, color: 'var(--text-2)',
+                  textTransform: 'uppercase', letterSpacing: .5,
+                  borderBottom: '1px solid var(--border)',
+                }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {items.map(item => (
-              <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ padding: '8px 12px', color: 'var(--text-2)', whiteSpace: 'nowrap', fontSize: 12 }}>{new Date(item.timestamp).toLocaleString()}</td>
-                <td style={{ padding: '8px 12px' }}><span className={ab(item.action)}>{item.action}</span></td>
-                <td style={{ padding: '8px 12px', color: 'var(--text-2)', fontSize: 12 }}>{item.field_changed}</td>
-                <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--danger)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.old_value_masked || '—'}</td>
-                <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--success)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.new_value_masked || '—'}</td>
-                <td style={{ padding: '8px 12px', color: 'var(--text-2)', fontSize: 12, whiteSpace: 'nowrap' }}>{item.changed_by}</td>
+              <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <td style={{ padding: '10px 12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{new Date(item.timestamp).toLocaleString()}</td>
+                <td style={{ padding: '10px 12px' }}><span className={ab(item.action)}>{item.action}</span></td>
+                <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>{item.field_changed}</td>
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, color: 'var(--danger)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.old_value_masked || '—'}</td>
+                <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, color: 'var(--success)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.new_value_masked || '—'}</td>
+                <td style={{ padding: '10px 12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{item.changed_by}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {total > 20 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Page {page} of {Math.ceil(total / 20)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Page {page} of {Math.ceil(total / 20)}</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="md-btn md-btn-outlined" style={{ padding: '4px 12px', fontSize: 12 }}>Prev</button>
-            <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)} className="md-btn md-btn-outlined" style={{ padding: '4px 12px', fontSize: 12 }}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="md-btn md-btn-outlined md-btn-sm">Prev</button>
+            <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)} className="md-btn md-btn-outlined md-btn-sm">Next</button>
           </div>
         </div>
       )}
@@ -114,11 +134,9 @@ export default function CredentialDetailPage() {
     api.getCredential(id)
       .then(c => {
         setCred(c)
-        // Fetch parent if this is a child credential
         if (c.linked_credential_id) {
           api.getCredential(c.linked_credential_id).then(setParent).catch(() => {})
         }
-        // Always fetch children (credentials that link to this one)
         api.listCredentials({ linked_to: c.credential_id, page_size: 100 })
           .then(r => setChildren(r.items))
           .catch(() => {})
@@ -143,114 +161,131 @@ export default function CredentialDetailPage() {
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ height: 28, background: 'var(--surface-2)', borderRadius: 6, width: 280, animation: 'pulse 1.5s infinite' }} />
-      {Array.from({ length: 3 }).map((_, i) => <div key={i} style={{ height: 100, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />)}
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} style={{ height: 100, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, animation: 'pulse 1.5s infinite' }} />
+      ))}
     </div>
   )
 
-  if (error) return <div style={{ background: 'var(--danger-bg)', border: '1px solid #f5c6c3', color: 'var(--danger)', padding: '12px 16px', borderRadius: 10, fontSize: 14 }}>{error}</div>
+  if (error) return (
+    <div style={{
+      background: 'var(--danger-bg)', color: 'var(--danger)',
+      padding: '12px 16px', borderRadius: 8, fontSize: 14,
+      display: 'flex', alignItems: 'center', gap: 8,
+    }}>
+      <span className="icon icon-sm">error</span>{error}
+    </div>
+  )
   if (!cred) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
       {/* Back */}
-      <button onClick={() => navigate('/credentials')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: 0, alignSelf: 'flex-start' }}>
-        <span className="icon icon-sm">arrow_back</span>Back to Credentials
+      <button
+        onClick={() => navigate('/credentials')}
+        className="md-btn md-btn-text md-btn-sm"
+        style={{ alignSelf: 'flex-start', marginLeft: -12 }}
+      >
+        <span className="icon icon-sm">arrow_back</span>Back to credentials
       </button>
 
       {/* Header */}
-      <div className="md-card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="icon icon-md" style={{ color: 'var(--primary)' }}>lock</span>
-              </div>
-              <h1 style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{cred.service_name}</h1>
+      <div className="md-card" style={{ padding: '24px 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+              <h1 style={{
+                fontFamily: "'Google Sans', sans-serif",
+                fontSize: 22, fontWeight: 400, color: 'var(--text-1)',
+                margin: 0, letterSpacing: -.2,
+              }}>{cred.service_name}</h1>
               <StatusBadge status={cred.status} />
               <PriorityBadge priority={cred.priority} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--text-3)', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'monospace' }}>{cred.credential_id}</span>
-              <span>·</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-2)', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'monospace', color: 'var(--text-3)' }}>{cred.credential_id}</span>
+              <span style={{ color: 'var(--text-3)' }}>·</span>
               <span>{cred.tenant_name || cred.tenant_code}</span>
-              {cred.category && <><span>·</span><span>{cred.category}</span></>}
+              {cred.category && <><span style={{ color: 'var(--text-3)' }}>·</span><span>{cred.category}</span></>}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {cred.service_url && (
-              <a href={cred.service_url} target="_blank" rel="noopener noreferrer" className="md-btn md-btn-outlined" style={{ textDecoration: 'none', fontSize: 13, padding: '6px 14px' }}>
-                <span className="icon icon-sm">open_in_new</span>Open URL
+              <a href={cred.service_url} target="_blank" rel="noopener noreferrer" className="md-btn md-btn-outlined md-btn-sm" style={{ textDecoration: 'none' }}>
+                <span className="icon icon-sm">open_in_new</span>Open
               </a>
             )}
-            <button className="md-btn md-btn-tonal" style={{ fontSize: 13, padding: '6px 14px' }} onClick={() => navigate(`/credential/${id}/edit`)}>
+            <button className="md-btn md-btn-tonal md-btn-sm" onClick={() => navigate(`/credential/${id}/edit`)}>
               <span className="icon icon-sm">edit</span>Edit
             </button>
-            <button className="md-btn md-btn-danger" style={{ fontSize: 13, padding: '6px 14px' }} onClick={handleArchive} disabled={archiving}>
+            <button className="md-btn md-btn-danger md-btn-sm" onClick={handleArchive} disabled={archiving}>
               <span className="icon icon-sm">archive</span>{archiving ? 'Archiving…' : 'Archive'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Shared Identity: child banner (this credential uses a master) ── */}
+      {/* Shared Identity: child banner */}
       {parent && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 18px', background: 'var(--primary-bg)', border: '1px solid rgba(26,115,232,.25)', borderRadius: 10 }}>
-          <span className="icon" style={{ fontSize: 22, color: 'var(--primary)', flexShrink: 0, marginTop: 1 }}>link</span>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 14,
+          padding: '16px 20px',
+          background: 'var(--primary-bg)', borderRadius: 12,
+        }}>
+          <span className="icon" style={{ color: 'var(--primary)', flexShrink: 0 }}>link</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', marginBottom: 4 }}>Shared Identity</div>
-            <div style={{ fontSize: 13, color: 'var(--text-1)' }}>
-              Auth for this service is provided by a shared master credential. Manage the password there.
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--primary)', marginBottom: 4 }}>Shared identity</div>
+            <div style={{ fontSize: 14, color: 'var(--text-1)' }}>
+              Authentication for this service is provided by a shared master credential.
             </div>
-            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', width: 'fit-content' }}>
-              <span className="icon icon-sm" style={{ color: 'var(--primary)' }}>lock</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{parent.service_name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{parent.username_email}{parent.category ? ` · ${parent.category}` : ''}</div>
-              </div>
-              <Link
-                to={`/credential/${parent.credential_id}`}
-                style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}
-              >
-                View master <span className="icon icon-sm">arrow_forward</span>
-              </Link>
-            </div>
+            <Link
+              to={`/credential/${parent.credential_id}`}
+              className="md-btn md-btn-text md-btn-sm"
+              style={{ marginTop: 8, marginLeft: -12 }}
+            >
+              <span className="icon icon-sm">lock</span>
+              View {parent.service_name}
+              <span className="icon icon-sm">arrow_forward</span>
+            </Link>
           </div>
         </div>
       )}
 
-      {/* ── Shared Identity: master banner (other credentials link to this one) ── */}
+      {/* Shared Identity: master banner */}
       {children.length > 0 && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'var(--surface-2)' }}>
-            <span className="icon icon-sm" style={{ color: 'var(--primary)' }}>hub</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', fontFamily: "'Google Sans', sans-serif" }}>
-              Shared Identity — used by {children.length} {children.length === 1 ? 'service' : 'services'}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 4 }}>
-              These credentials authenticate via this master account
-            </span>
+        <div className="md-card" style={{ overflow: 'hidden', padding: 0 }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h2 className="section-title">
+              <span className="icon icon-sm" style={{ verticalAlign: 'middle', color: 'var(--primary)', marginRight: 8 }}>hub</span>
+              Shared identity — used by {children.length} {children.length === 1 ? 'service' : 'services'}
+            </h2>
           </div>
-          <div style={{ background: 'var(--surface)' }}>
+          <div>
             {children.map((child, i) => (
-              <div key={child.credential_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                <span className="icon icon-sm" style={{ color: 'var(--text-3)', flexShrink: 0 }}>lock</span>
+              <div
+                key={child.credential_id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 20px',
+                  borderBottom: i < children.length - 1 ? '1px solid var(--border)' : 'none',
+                }}
+              >
+                <span className="icon icon-sm" style={{ color: 'var(--text-3)' }}>lock</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-1)' }}>{child.service_name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>{child.service_name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
                     {[child.category, child.tenant_name || child.tenant_code].filter(Boolean).join(' · ')}
                   </div>
                 </div>
-                {child.service_url && (
-                  <a href={child.service_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--text-3)', textDecoration: 'none', flexShrink: 0 }}>
-                    <span className="icon icon-sm">open_in_new</span>
-                  </a>
-                )}
                 <StatusBadge status={child.status} />
                 <Link
                   to={`/credential/${child.credential_id}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--primary)', textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}
+                  className="md-btn md-btn-text md-btn-sm"
+                  style={{ textDecoration: 'none' }}
                 >
-                  View <span className="icon icon-sm">arrow_forward</span>
+                  View
+                  <span className="icon icon-sm">arrow_forward</span>
                 </Link>
               </div>
             ))}
@@ -259,15 +294,20 @@ export default function CredentialDetailPage() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
-        {([['details', 'Details'], ['history', 'Change History']] as const).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: '8px 18px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14,
-            fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
-            color: tab === t ? 'var(--primary)' : 'var(--text-2)',
-            borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
-            marginBottom: -1,
-          }}>{label}</button>
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
+        {([['details', 'Details'], ['history', 'Change history']] as const).map(([t, label]) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 14, fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
+              color: tab === t ? 'var(--primary)' : 'var(--text-2)',
+              borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+              marginBottom: -1,
+              transition: 'color .12s',
+            }}
+          >{label}</button>
         ))}
       </div>
 
@@ -275,9 +315,7 @@ export default function CredentialDetailPage() {
         <div className="animate-in">
           <Section title="1. Core Identity">
             <FR label="Credential ID" value={fmt(cred.credential_id)} />
-            <FR label="Credential Type" value={cred.credential_type ? (
-              <span style={{ background: 'var(--primary-bg)', color: 'var(--primary)', padding: '2px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>{cred.credential_type}</span>
-            ) : null} />
+            <FR label="Credential Type" value={cred.credential_type ? <span className="md-chip">{cred.credential_type}</span> : null} />
             <FR label="Tenant" value={fmt(cred.tenant_name || cred.tenant_code)} />
             <FR label="Category" value={fmt(cred.category)} />
             <FR label="Subcategory" value={fmt(cred.subcategory)} />
@@ -290,8 +328,8 @@ export default function CredentialDetailPage() {
 
           <Section title="2. Authentication">
             <FR label="Username / Email" value={fmt(cred.username_email)} />
-            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>Password</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Password</div>
               <MaskedField label="" credentialId={cred.credential_id} field="password" hasValue={cred.has_password} />
             </div>
             <FR label="Recovery Email" value={fmt(cred.recovery_email)} />
@@ -300,55 +338,54 @@ export default function CredentialDetailPage() {
             <FR label="Security Notes" value={fmt(cred.security_notes)} />
           </Section>
 
-          {/* MFA Methods */}
           <Section title="3. MFA Methods" open={(cred.mfa_methods?.length ?? 0) > 0}>
             {(!cred.mfa_methods || cred.mfa_methods.length === 0) ? (
-              <div style={{ color: 'var(--text-3)', fontSize: 13, padding: '8px 0' }}>No MFA methods configured</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 14, padding: '8px 0' }}>No MFA methods configured</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(cred.mfa_methods as MfaMethod[]).map((m, i) => (
-                  <div key={i} style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div key={i} style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                       <span className="icon icon-sm" style={{ color: 'var(--primary)' }}>security</span>
-                      <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-1)' }}>{m.type || 'MFA'}</span>
-                      {m.app_name && <span style={{ fontSize: 12, color: 'var(--text-2)' }}>· {m.app_name}</span>}
+                      <span style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-1)' }}>{m.type || 'MFA'}</span>
+                      {m.app_name && <span style={{ fontSize: 13, color: 'var(--text-2)' }}>· {m.app_name}</span>}
                     </div>
-                    {m.person_name && <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Person: {m.person_name}{m.person_email ? ` (${m.person_email})` : ''}</div>}
-                    {m.phone && <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Phone: {m.phone}</div>}
-                    {m.notes && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4, fontStyle: 'italic' }}>{m.notes}</div>}
+                    {m.person_name && <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Person: {m.person_name}{m.person_email ? ` (${m.person_email})` : ''}</div>}
+                    {m.phone && <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Phone: {m.phone}</div>}
+                    {m.notes && <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>{m.notes}</div>}
                   </div>
                 ))}
               </div>
             )}
           </Section>
 
-          {/* Authorized Users */}
           <Section title="4. Authorized Users" open={(cred.authorized_users?.length ?? 0) > 0}>
             {(!cred.authorized_users || cred.authorized_users.length === 0) ? (
-              <div style={{ color: 'var(--text-3)', fontSize: 13, padding: '8px 0' }}>No authorized users listed</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 14, padding: '8px 0' }}>No authorized users listed</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ background: 'var(--surface-2)' }}>
-                      {['Name', 'Email', 'Access Level', 'Notes'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: .5 }}>{h}</th>
+                    <tr>
+                      {['Name', 'Email', 'Access', 'Notes'].map(h => (
+                        <th key={h} style={{
+                          textAlign: 'left', padding: '10px 12px',
+                          fontSize: 11, fontWeight: 500, color: 'var(--text-2)',
+                          textTransform: 'uppercase', letterSpacing: .5,
+                          borderBottom: '1px solid var(--border)',
+                        }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {(cred.authorized_users as AuthorizedUser[]).map((u, i) => (
-                      <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ padding: '8px 12px', fontWeight: 500 }}>{u.name || '—'}</td>
-                        <td style={{ padding: '8px 12px', color: 'var(--text-2)' }}>{u.email || '—'}</td>
-                        <td style={{ padding: '8px 12px' }}>
-                          <span style={{
-                            background: u.access_level === 'Admin' ? 'var(--danger-bg)' : u.access_level === 'Write' ? 'var(--warn-bg)' : 'var(--primary-bg)',
-                            color: u.access_level === 'Admin' ? 'var(--danger)' : u.access_level === 'Write' ? '#b06000' : 'var(--primary)',
-                            padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                          }}>{u.access_level || 'Read'}</span>
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 500 }}>{u.name || '—'}</td>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>{u.email || '—'}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span className="md-chip">{u.access_level || 'Read'}</span>
                         </td>
-                        <td style={{ padding: '8px 12px', color: 'var(--text-3)', fontSize: 12 }}>{u.notes || '—'}</td>
+                        <td style={{ padding: '10px 12px', color: 'var(--text-3)' }}>{u.notes || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -374,22 +411,22 @@ export default function CredentialDetailPage() {
           <Section title="6. Technical / API" open={false}>
             <FR label="Access Level" value={fmt(cred.access_level)} />
             <FR label="Linked Credential" value={cred.linked_credential_id ? (
-              <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <span className="icon icon-sm">lock</span>
                 {parent ? parent.service_name : cred.linked_credential_id}
               </Link>
             ) : null} />
-            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>API Key</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Key</div>
               <MaskedField label="" credentialId={cred.credential_id} field="api_key" hasValue={cred.has_api_key} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>API Secret</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Secret</div>
               <MaskedField label="" credentialId={cred.credential_id} field="api_secret" hasValue={cred.has_api_secret} />
             </div>
             <FR label="Client ID" value={fmt(cred.client_id)} />
-            <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--surface-2)' }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)', fontFamily: "'Google Sans', sans-serif" }}>Client Secret</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Client Secret</div>
               <MaskedField label="" credentialId={cred.credential_id} field="client_secret" hasValue={cred.has_client_secret} />
             </div>
             <FR label="Tenant ID (App)" value={fmt(cred.tenant_id_app)} />
@@ -410,16 +447,15 @@ export default function CredentialDetailPage() {
             <FR label="Last Verified" value={fmtDate(cred.last_verified_date)} />
             <FR label="Last Password Changed" value={fmtDate(cred.last_password_changed)} />
             <FR label="Password Expiry" value={cred.password_expiry_date ? (
-              <span style={{ color: new Date(cred.password_expiry_date) < new Date() ? 'var(--danger)' : 'var(--text-1)', fontWeight: new Date(cred.password_expiry_date) < new Date() ? 600 : 400 }}>
-                {fmtDate(cred.password_expiry_date)}
-              </span>
+              <span style={{
+                color: new Date(cred.password_expiry_date) < new Date() ? 'var(--danger)' : 'var(--text-1)',
+                fontWeight: new Date(cred.password_expiry_date) < new Date() ? 500 : 400,
+              }}>{fmtDate(cred.password_expiry_date)}</span>
             ) : null} />
             <FR label="Next Review" value={fmtDate(cred.next_review_date)} />
             <FR label="Tags" value={cred.tags ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {cred.tags.split(',').map(t => (
-                  <span key={t.trim()} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '1px 8px', fontSize: 11, color: 'var(--text-2)' }}>{t.trim()}</span>
-                ))}
+                {cred.tags.split(',').map(t => <span key={t.trim()} className="md-chip">{t.trim()}</span>)}
               </div>
             ) : null} />
             <FR label="Notes" value={fmt(cred.notes)} />
@@ -428,7 +464,7 @@ export default function CredentialDetailPage() {
       )}
 
       {tab === 'history' && id && (
-        <div className="md-card animate-in" style={{ padding: 20 }}>
+        <div className="md-card animate-in" style={{ padding: 24 }}>
           <ChangeLogTable credentialId={id} />
         </div>
       )}

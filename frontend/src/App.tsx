@@ -14,20 +14,8 @@ import CategoriesPage from './pages/CategoriesPage'
 import SettingsPage from './pages/SettingsPage'
 import UsersPage from './pages/UsersPage'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const isElectron = typeof window !== 'undefined' && !!(window as Window & { credManager?: unknown }).credManager
-
-// Header colors — driven by CSS variables that switch with theme (see index.css)
-const H_BG          = 'var(--h-bg)'
-const H_BORDER      = 'var(--h-border)'
-const H_TEXT        = 'var(--h-text)'
-const H_TEXT_ACTIVE = 'var(--h-text-active)'
-const H_ACTIVE_BG   = 'var(--h-active-bg)'
-const H_ACTIVE_TXT  = 'var(--h-active-txt)'
-const H_HOVER_BG    = 'var(--h-hover-bg)'
-const H_DIVIDER     = 'var(--h-divider)'
-const H_HEIGHT      = 44
+const H_HEIGHT = 56
 
 // ── Toast system ─────────────────────────────────────────────────────────────
 
@@ -42,18 +30,36 @@ let toastCounter = 0
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   if (toasts.length === 0) return null
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 8, maxWidth: 380 }}>
+    <div style={{
+      position: 'fixed', bottom: 24, left: 24, zIndex: 9999,
+      display: 'flex', flexDirection: 'column-reverse', gap: 8, maxWidth: 420,
+    }}>
       {toasts.map((t) => (
-        <div key={t.id} style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px',
-          borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,.25)',
-          background: t.type === 'success' ? '#188038' : t.type === 'error' ? '#d93025' : '#202124',
-          color: '#fff', fontSize: 13, fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
-          animation: 'fadeIn .2s ease',
+        <div key={t.id} className="animate-in" style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 16px',
+          borderRadius: 8,
+          background: '#3c4043',
+          color: '#fff',
+          fontSize: 14,
+          fontFamily: "'Google Sans', sans-serif",
+          fontWeight: 400,
+          minHeight: 48,
         }}>
-          <span className="icon icon-sm">{t.type === 'success' ? 'check_circle' : t.type === 'error' ? 'error' : 'info'}</span>
+          <span className="icon icon-sm" style={{
+            color: t.type === 'success' ? '#81c995' : t.type === 'error' ? '#f28b82' : '#8ab4f8',
+          }}>
+            {t.type === 'success' ? 'check_circle' : t.type === 'error' ? 'error' : 'info'}
+          </span>
           <span style={{ flex: 1 }}>{t.message}</span>
-          <button onClick={() => onDismiss(t.id)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', opacity: .7, padding: 0, lineHeight: 1 }}>
+          <button
+            onClick={() => onDismiss(t.id)}
+            style={{
+              background: 'none', border: 'none', color: '#bdc1c6',
+              cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center',
+              borderRadius: 4,
+            }}
+          >
             <span className="icon icon-sm">close</span>
           </button>
         </div>
@@ -93,11 +99,9 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
     finally { setBusy(false) }
   }
 
-  const synced  = pending === 0
-  const pillBg  = synced ? 'rgba(52,168,83,.18)'  : 'rgba(251,176,27,.18)'
-  const pillClr = synced ? '#4caf50'               : '#fbb01b'
-  const pillBdr = synced ? 'rgba(52,168,83,.3)'   : 'rgba(251,176,27,.3)'
-  const pillIcon = busy ? 'sync' : (synced ? 'cloud_done' : 'cloud_upload')
+  const synced = pending === 0
+  const icon   = busy ? 'sync' : (synced ? 'cloud_done' : 'cloud_upload')
+  const label  = busy ? 'Syncing' : synced ? 'Synced' : `${pending} pending`
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -105,23 +109,31 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
         onClick={() => setOpen(o => !o)}
         disabled={busy}
         style={{
-          display: 'flex', alignItems: 'center', gap: 5, height: 28,
-          padding: '0 10px', border: `1px solid ${pillBdr}`, borderRadius: 14,
-          background: pillBg, color: pillClr,
-          fontSize: 12, fontFamily: "'Google Sans', sans-serif", fontWeight: 600,
-          cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
+          display: 'flex', alignItems: 'center', gap: 8, height: 36,
+          padding: '0 12px',
+          border: 'none',
+          borderRadius: 18,
+          background: 'transparent',
+          color: synced ? 'var(--text-2)' : 'var(--warn)',
+          fontSize: 13,
+          fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
+          cursor: 'pointer',
+          transition: 'background-color .12s',
+          whiteSpace: 'nowrap',
         }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--h-hover-bg)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
-        <span className="icon icon-sm" style={{ fontSize: 14, animation: busy ? 'spin .8s linear infinite' : 'none' }}>{pillIcon}</span>
-        {busy ? 'Syncing…' : synced ? 'Synced' : `${pending} pending`}
-        <span className="icon icon-sm" style={{ fontSize: 12 }}>expand_more</span>
+        <span className="icon icon-sm" style={{ animation: busy ? 'spin .8s linear infinite' : 'none' }}>{icon}</span>
+        {label}
       </button>
 
       {open && (
         <div style={{
-          position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 200, zIndex: 200,
-          background: 'var(--h-dropdown-bg)', border: '1px solid var(--h-dropdown-bdr)', borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,.3)', overflow: 'hidden',
+          position: 'absolute', right: 0, top: 'calc(100% + 6px)', minWidth: 220, zIndex: 200,
+          background: 'var(--h-dropdown-bg)', border: '1px solid var(--h-dropdown-bdr)',
+          borderRadius: 8, boxShadow: 'var(--shadow-2)', overflow: 'hidden',
+          padding: '6px 0',
         }}>
           {[
             { label: 'Push to SharePoint', icon: 'upload', action: 'push' as const },
@@ -129,15 +141,15 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
             { label: 'Push & Pull', icon: 'sync', action: 'both' as const },
           ].map(item => (
             <button key={item.action} onClick={() => doSync(item.action)} style={{
-              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-              padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer',
-              fontSize: 13, color: 'var(--h-dropdown-text)', textAlign: 'left',
-              transition: 'background .1s',
+              display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+              padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 14, color: 'var(--h-dropdown-text)', textAlign: 'left',
+              fontFamily: "'Google Sans', sans-serif",
             }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--h-dropdown-hover)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <span className="icon icon-sm" style={{ color: H_ACTIVE_TXT }}>{item.icon}</span>
+              <span className="icon icon-sm" style={{ color: 'var(--text-2)' }}>{item.icon}</span>
               {item.label}
             </button>
           ))}
@@ -156,26 +168,19 @@ function HeaderIconBtn({ icon, title, onClick }: { icon: string; title: string; 
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 30, height: 30, borderRadius: 6, border: 'none',
-        background: 'transparent', color: H_TEXT,
-        cursor: 'pointer', transition: 'background .12s, color .12s', flexShrink: 0,
+        width: 36, height: 36, borderRadius: 18, border: 'none',
+        background: 'transparent', color: 'var(--text-2)',
+        cursor: 'pointer', transition: 'background-color .12s', flexShrink: 0,
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = H_HOVER_BG; e.currentTarget.style.color = H_TEXT_ACTIVE }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = H_TEXT }}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--h-hover-bg)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
-      <span className="icon icon-sm" style={{ fontSize: 18 }}>{icon}</span>
+      <span className="icon icon-sm">{icon}</span>
     </button>
   )
 }
 
 // ── User avatar / logout menu ─────────────────────────────────────────────────
-
-const ROLE_COLOR: Record<string, string> = {
-  Admin:   '#4285f4',
-  Editor:  '#34a853',
-  Viewer:  '#fbbc05',
-  Auditor: '#ea4335',
-}
 
 function UserMenu() {
   const { user, authEnabled, logout } = useAuth()
@@ -191,7 +196,6 @@ function UserMenu() {
   if (!authEnabled || !user) return null
 
   const initials = (user.name || user.email || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const roleColor = ROLE_COLOR[user.role] || '#666'
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -199,54 +203,55 @@ function UserMenu() {
         onClick={() => setOpen(o => !o)}
         title={`${user.name} (${user.role})`}
         style={{
-          display: 'flex', alignItems: 'center', gap: 7, height: 30,
-          padding: '0 8px', border: `1px solid ${H_BORDER}`,
-          borderRadius: 20, background: 'var(--h-hover-bg)',
-          color: H_TEXT_ACTIVE, cursor: 'pointer', fontSize: 12,
-          fontFamily: "'Google Sans', sans-serif", fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'var(--primary)',
+          color: '#fff', cursor: 'pointer',
+          border: 'none',
+          fontSize: 12,
+          fontFamily: "'Google Sans', sans-serif", fontWeight: 500,
+          flexShrink: 0,
         }}
       >
-        <span style={{
-          width: 22, height: 22, borderRadius: '50%',
-          background: roleColor, color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 10, fontWeight: 700, flexShrink: 0,
-        }}>{initials}</span>
-        <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {user.name || user.email}
-        </span>
-        <span className="icon icon-sm" style={{ fontSize: 14, opacity: .6 }}>expand_more</span>
+        {initials}
       </button>
 
       {open && (
         <div style={{
-          position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 210, zIndex: 200,
+          position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 260, zIndex: 200,
           background: 'var(--h-dropdown-bg)', border: '1px solid var(--h-dropdown-bdr)',
-          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.3)', overflow: 'hidden',
+          borderRadius: 12, boxShadow: 'var(--shadow-2)', overflow: 'hidden',
         }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--h-dropdown-bdr)' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--h-text-active)' }}>{user.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--h-text)', marginTop: 2 }}>{user.email}</div>
+          <div style={{ padding: '20px 16px', textAlign: 'center', borderBottom: '1px solid var(--h-dropdown-bdr)' }}>
             <div style={{
-              marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-              background: roleColor + '22', color: roleColor, border: `1px solid ${roleColor}44`,
+              width: 56, height: 56, borderRadius: '50%',
+              background: 'var(--primary)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 22, fontWeight: 500, fontFamily: "'Google Sans', sans-serif",
+              margin: '0 auto 12px',
+            }}>{initials}</div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-1)' }}>{user.name || user.email}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{user.email}</div>
+            <div style={{
+              marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500,
+              background: 'var(--surface-3)', color: 'var(--text-2)',
             }}>
-              <span className="icon icon-sm" style={{ fontSize: 12 }}>shield</span>
               {user.role}
             </div>
           </div>
           <button
             onClick={async () => { setOpen(false); await logout() }}
             style={{
-              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-              padding: '10px 14px', border: 'none', background: 'none',
-              color: 'var(--h-dropdown-text)', cursor: 'pointer', fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+              padding: '12px 16px', border: 'none', background: 'none',
+              color: 'var(--h-dropdown-text)', cursor: 'pointer', fontSize: 14,
+              fontFamily: "'Google Sans', sans-serif",
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--h-dropdown-hover)'}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
-            <span className="icon icon-sm" style={{ color: '#ea4335' }}>logout</span>
+            <span className="icon icon-sm" style={{ color: 'var(--text-2)' }}>logout</span>
             Sign out
           </button>
         </div>
@@ -284,11 +289,9 @@ export default function App() {
 function AppInner() {
   const { user, loading, authEnabled } = useAuth()
   const navigate = useNavigate()
-  // When auth is disabled every session is implicitly Admin
   const isAdmin = !authEnabled || user?.role === 'Admin'
   const canCreate = !authEnabled || user?.role === 'Admin' || user?.role === 'Editor'
 
-  // Global Ctrl+N → new credential
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n' && canCreate) {
@@ -299,6 +302,7 @@ function AppInner() {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [navigate, canCreate])
+
   const [toasts, setToasts] = useState<Toast[]>([])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
     (localStorage.getItem('cred-theme') as 'light' | 'dark') || 'light'
@@ -310,7 +314,6 @@ function AppInner() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
   }, [])
 
-  // Load persisted theme from Electron on mount (overrides localStorage)
   useEffect(() => {
     const win = window as Window & { credManager?: { getTheme?: () => Promise<string> } }
     win.credManager?.getTheme?.().then(t => {
@@ -318,7 +321,6 @@ function AppInner() {
     }).catch(() => {})
   }, [])
 
-  // Global auto-update event listeners — register once so toasts fire regardless of active page
   useEffect(() => {
     type UpdateBridge = Window & {
       credManager?: {
@@ -350,14 +352,12 @@ function AppInner() {
     })
   }
 
-  // Gate: loading spinner
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-3)' }}>
       <span className="icon" style={{ fontSize: 32, animation: 'spin .8s linear infinite' }}>sync</span>
     </div>
   )
 
-  // Gate: login required
   if (authEnabled && !user) return (
     <ToastContext.Provider value={{ showToast }}>
       <LoginPage />
@@ -369,32 +369,35 @@ function AppInner() {
     <ToastContext.Provider value={{ showToast }}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-        {/* ── Top app bar (always dark) ─────────────────────────────────── */}
+        {/* ── Top app bar — clean, minimal, single line ─────────────────── */}
         <header className="app-header" style={{
           position: 'sticky', top: 0, zIndex: 50,
-          background: H_BG,
-          borderBottom: `1px solid ${H_BORDER}`,
+          background: 'var(--h-bg)',
+          borderBottom: '1px solid var(--h-border)',
           height: H_HEIGHT,
           display: 'flex', alignItems: 'center',
           flexShrink: 0,
         }}>
           <div style={{
-            width: '100%', maxWidth: 1400, margin: '0 auto',
-            padding: '0 16px',
+            width: '100%', maxWidth: 1440, margin: '0 auto',
+            padding: '0 24px',
             display: 'flex', alignItems: 'center', gap: 0, height: '100%',
           }}>
 
             {/* Brand */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingRight: 14 }}>
-              <img src="/assets/cred_manager.svg" alt="logo" style={{ width: 26, height: 26 }} />
-              <div style={{ lineHeight: 1 }}>
-                <div style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700, fontSize: 14, color: H_TEXT_ACTIVE }}>CredManager</div>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: '.6px', textTransform: 'uppercase', marginTop: 1 }}>Gravity BP</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, paddingRight: 32 }}>
+              <img src="/assets/cred_manager.svg" alt="" style={{ width: 24, height: 24 }} />
+              <div style={{
+                fontFamily: "'Google Sans', sans-serif",
+                fontWeight: 400,
+                fontSize: 20,
+                color: 'var(--text-1)',
+                letterSpacing: -.2,
+                lineHeight: 1,
+              }}>
+                Credential Manager
               </div>
             </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, height: 22, background: H_DIVIDER, marginRight: 14, flexShrink: 0 }} />
 
             {/* Nav */}
             <nav style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, overflow: 'hidden' }}>
@@ -404,56 +407,48 @@ function AppInner() {
                   to={item.to}
                   end={item.end}
                   style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '5px 11px', height: 30,
-                    borderRadius: 6, textDecoration: 'none', whiteSpace: 'nowrap',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '0 14px', height: 36,
+                    borderRadius: 18, textDecoration: 'none', whiteSpace: 'nowrap',
                     fontFamily: "'Google Sans', sans-serif", fontWeight: 500, fontSize: 13,
-                    background: isActive ? H_ACTIVE_BG : 'transparent',
-                    color: isActive ? H_ACTIVE_TXT : H_TEXT,
-                    transition: 'background .12s, color .12s',
+                    background: isActive ? 'var(--h-active-bg)' : 'transparent',
+                    color: isActive ? 'var(--h-active-txt)' : 'var(--text-2)',
+                    transition: 'background-color .12s, color .12s',
                   })}
                   onMouseEnter={e => {
                     const el = e.currentTarget as HTMLAnchorElement
                     if (el.getAttribute('aria-current') !== 'page') {
-                      el.style.background = H_HOVER_BG
+                      el.style.background = 'var(--h-hover-bg)'
+                      el.style.color = 'var(--text-1)'
                     }
                   }}
                   onMouseLeave={e => {
                     const el = e.currentTarget as HTMLAnchorElement
                     if (el.getAttribute('aria-current') !== 'page') {
                       el.style.background = 'transparent'
+                      el.style.color = 'var(--text-2)'
                     }
                   }}
                 >
-                  <span className="icon" style={{ fontSize: 15 }}>{item.icon}</span>
+                  <span className="icon icon-sm">{item.icon}</span>
                   {item.label}
                 </NavLink>
               ))}
             </nav>
 
             {/* Right controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, paddingLeft: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, paddingLeft: 12 }}>
               {canCreate && (
                 <button
                   onClick={() => navigate('/credential/new')}
                   title="New Credential (Ctrl+N)"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5, height: 28,
-                    padding: '0 12px', borderRadius: 6, cursor: 'pointer',
-                    background: 'rgba(66,133,244,.2)', color: '#82b4ff',
-                    border: '1px solid rgba(66,133,244,.3)',
-                    fontSize: 12, fontFamily: "'Google Sans', sans-serif", fontWeight: 600,
-                    flexShrink: 0,
-                  }}
+                  className="md-btn md-btn-tonal md-btn-sm"
+                  style={{ marginRight: 8 }}
                 >
-                  <span className="icon icon-sm" style={{ fontSize: 15 }}>add</span>New
+                  <span className="icon icon-sm">add</span>New
                 </button>
               )}
               <SyncButton showToast={showToast} />
-
-              {/* Divider */}
-              <div style={{ width: 1, height: 18, background: H_DIVIDER, margin: '0 2px' }} />
-
               <HeaderIconBtn
                 icon={theme === 'light' ? 'dark_mode' : 'light_mode'}
                 title={theme === 'light' ? 'Dark mode' : 'Light mode'}
@@ -464,20 +459,18 @@ function AppInner() {
                 title="Settings"
                 onClick={() => navigate('/settings')}
               />
+              <div style={{ marginLeft: 8 }}>
+                <UserMenu />
+              </div>
 
-              {/* Divider + signed-in user pill */}
-              <div style={{ width: 1, height: 18, background: H_DIVIDER, margin: '0 2px' }} />
-              <UserMenu />
-
-              {/* Spacer so content clears the Electron window control buttons */}
               {isElectron && <div style={{ width: 138, flexShrink: 0 }} />}
             </div>
           </div>
         </header>
 
         {/* ── Page content ──────────────────────────────────────────────── */}
-        <main style={{ flex: 1, overflowY: 'auto' }}>
-          <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 20px' }}>
+        <main style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
+          <div style={{ maxWidth: 1440, margin: '0 auto', padding: '32px 24px' }}>
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/credentials" element={<CredentialsPage />} />
@@ -503,9 +496,9 @@ function AppInner() {
 function NotFound() {
   const navigate = useNavigate()
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400, gap: 16 }}>
-      <span className="icon" style={{ fontSize: 64, color: 'var(--text-3)', opacity: .3 }}>search_off</span>
-      <div style={{ fontSize: 20, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-2)' }}>Page not found</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 360, gap: 16 }}>
+      <span className="icon icon-xl" style={{ color: 'var(--text-3)' }}>search_off</span>
+      <div className="page-title">Page not found</div>
       <button className="md-btn md-btn-tonal" onClick={() => navigate('/')}>Go to Dashboard</button>
     </div>
   )

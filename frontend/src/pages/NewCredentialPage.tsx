@@ -18,24 +18,24 @@ const DEFAULT_AUTO_RENEWALS  = ['Yes', 'No', 'Unknown']
 
 const BLANK_MFA: MfaMethod = { type: 'TOTP', app_name: '', person_name: '', person_email: '', phone: '', notes: '' }
 
-const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text-1)', outline: 'none', fontFamily: 'Roboto, sans-serif' }
-
 function FF({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <div>
-      <label className="md-label">{label}{required && <span style={{ color: 'var(--danger)', marginLeft: 2 }}>*</span>}</label>
+      <label className="md-label">
+        {label}{required && <span style={{ color: 'var(--danger)', marginLeft: 2 }}>*</span>}
+      </label>
       {children}
     </div>
   )
 }
 
 function TI({ name, value, onChange, placeholder, required, type = 'text' }: { name: string; value: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; placeholder?: string; required?: boolean; type?: string }) {
-  return <input type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required} style={inp} />
+  return <input type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required} className="md-input" />
 }
 
 function SI({ name, value, onChange, options, placeholder }: { name: string; value: string; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; options: string[]; placeholder?: string }) {
   return (
-    <select name={name} value={value} onChange={onChange} style={inp}>
+    <select name={name} value={value} onChange={onChange} className="md-select">
       {placeholder && <option value="">{placeholder}</option>}
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
@@ -46,9 +46,20 @@ function PI({ name, value, onChange, placeholder }: { name: string; value: strin
   const [show, setShow] = useState(false)
   return (
     <div style={{ position: 'relative' }}>
-      <input type={show ? 'text' : 'password'} name={name} value={value} onChange={onChange} placeholder={placeholder ?? '(leave blank to skip)'} style={{ ...inp, paddingRight: 70 }} />
-      <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 3 }}>
-        <span className="icon icon-sm">{show ? 'visibility_off' : 'visibility'}</span>{show ? 'Hide' : 'Show'}
+      <input
+        type={show ? 'text' : 'password'}
+        name={name} value={value} onChange={onChange}
+        placeholder={placeholder ?? '(leave blank to skip)'}
+        className="md-input" style={{ paddingRight: 80 }}
+      />
+      <button type="button" onClick={() => setShow(s => !s)} style={{
+        position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+        background: 'none', border: 'none', cursor: 'pointer',
+        color: 'var(--primary)', fontSize: 13, fontWeight: 500,
+        display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px',
+      }}>
+        <span className="icon icon-sm">{show ? 'visibility_off' : 'visibility'}</span>
+        {show ? 'Hide' : 'Show'}
       </button>
     </div>
   )
@@ -57,12 +68,21 @@ function PI({ name, value, onChange, placeholder }: { name: string; value: strin
 function Sec({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
-      <button type="button" onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface-2)', border: 'none', cursor: 'pointer' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>{title}</span>
+    <div className="md-card" style={{ overflow: 'hidden', marginBottom: 12, padding: 0 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer',
+        textAlign: 'left',
+        fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500, color: 'var(--text-1)',
+      }}>
+        {title}
         <span className="icon icon-sm" style={{ color: 'var(--text-3)' }}>{open ? 'expand_less' : 'expand_more'}</span>
       </button>
-      {open && <div style={{ padding: '16px', background: 'var(--surface)' }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>{children}</div></div>}
+      {open && (
+        <div style={{ padding: '4px 20px 24px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, paddingTop: 16 }}>{children}</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -119,7 +139,6 @@ export default function NewCredentialPage() {
     api.getReferenceData().then(setRefData).catch(() => {})
   }, [])
 
-  // Ctrl+S → submit
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -143,15 +162,15 @@ export default function NewCredentialPage() {
 
   const subcategories = categories.find(c => c.category_name === form.category)?.subcategories ?? []
 
-  const STATUSES      = refData.status         ?? DEFAULT_STATUSES
-  const PRIORITIES    = refData.priority        ?? DEFAULT_PRIORITIES
-  const ENVIRONMENTS  = refData.environment     ?? DEFAULT_ENVIRONMENTS
-  const CRED_TYPES    = refData.credential_type ?? DEFAULT_CRED_TYPES
-  const MFA_TYPES     = refData.mfa_type        ?? DEFAULT_MFA_TYPES
-  const ACCESS_LEVELS = refData.access_level    ?? DEFAULT_ACCESS_LEVELS
-  const PROTOCOLS     = refData.protocol        ?? DEFAULT_PROTOCOLS
-  const BILLING_CYCLES = refData.billing_cycle  ?? DEFAULT_BILLING_CYCLES
-  const AUTO_RENEWALS  = refData.auto_renewal   ?? DEFAULT_AUTO_RENEWALS
+  const STATUSES       = refData.status         ?? DEFAULT_STATUSES
+  const PRIORITIES     = refData.priority        ?? DEFAULT_PRIORITIES
+  const ENVIRONMENTS   = refData.environment     ?? DEFAULT_ENVIRONMENTS
+  const CRED_TYPES     = refData.credential_type ?? DEFAULT_CRED_TYPES
+  const MFA_TYPES      = refData.mfa_type        ?? DEFAULT_MFA_TYPES
+  const ACCESS_LEVELS  = refData.access_level    ?? DEFAULT_ACCESS_LEVELS
+  const PROTOCOLS      = refData.protocol        ?? DEFAULT_PROTOCOLS
+  const BILLING_CYCLES = refData.billing_cycle   ?? DEFAULT_BILLING_CYCLES
+  const AUTO_RENEWALS  = refData.auto_renewal    ?? DEFAULT_AUTO_RENEWALS
 
   function validate() {
     const e: string[] = []
@@ -185,18 +204,21 @@ export default function NewCredentialPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 80 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 96 }}>
       <div>
-        <button onClick={() => navigate('/credentials')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: 0, marginBottom: 10 }}>
-          <span className="icon icon-sm">arrow_back</span>Back to Credentials
+        <button onClick={() => navigate('/credentials')} className="md-btn md-btn-text md-btn-sm" style={{ marginLeft: -12, marginBottom: 12 }}>
+          <span className="icon icon-sm">arrow_back</span>Back to credentials
         </button>
-        <div className="page-title">New Credential</div>
+        <div className="page-title">New credential</div>
         <div className="page-subtitle">Fill in the details to create a new credential record</div>
       </div>
 
       {errors.length > 0 && (
-        <div style={{ background: 'var(--danger-bg)', border: '1px solid #f5c6c3', color: 'var(--danger)', padding: '12px 16px', borderRadius: 10, fontSize: 13 }}>
-          <ul style={{ margin: 0, paddingLeft: 16 }}>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+        <div style={{
+          background: 'var(--danger-bg)', color: 'var(--danger)',
+          padding: '12px 16px', borderRadius: 8, fontSize: 14,
+        }}>
+          <ul style={{ margin: 0, paddingLeft: 20 }}>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
         </div>
       )}
 
@@ -204,13 +226,13 @@ export default function NewCredentialPage() {
         <Sec title="1. Core Identity">
           <FF label="Credential Type" required><SI name="credential_type" value={form.credential_type} onChange={handleChange} options={CRED_TYPES} /></FF>
           <FF label="Tenant" required>
-            <select name="tenant_code" value={form.tenant_code} onChange={handleChange} style={inp}>
+            <select name="tenant_code" value={form.tenant_code} onChange={handleChange} className="md-select">
               <option value="">Select tenant…</option>
               {tenants.map(t => <option key={t.tenant_code} value={t.tenant_code}>{t.tenant_name} ({t.tenant_code})</option>)}
             </select>
           </FF>
           <FF label="Category" required>
-            <select name="category" value={form.category} onChange={handleChange} style={inp}>
+            <select name="category" value={form.category} onChange={handleChange} className="md-select">
               <option value="">Select category…</option>
               {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
             </select>
@@ -240,32 +262,50 @@ export default function NewCredentialPage() {
           <FF label="Recovery Phone"><TI name="recovery_phone" value={form.recovery_phone} onChange={handleChange} type="tel" /></FF>
           <FF label="Backup Codes Location"><TI name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} /></FF>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FF label="Security Notes"><textarea name="security_notes" value={form.security_notes} onChange={handleChange} rows={2} style={{ ...inp, resize: 'vertical' }} /></FF>
+            <FF label="Security Notes"><textarea name="security_notes" value={form.security_notes} onChange={handleChange} rows={2} className="md-textarea" /></FF>
           </div>
         </Sec>
 
         {/* MFA Methods */}
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
-          <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface-2)' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>3. MFA Methods</span>
-            <button type="button" onClick={() => setMfaMethods(prev => [...prev, { ...BLANK_MFA }])} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--primary-bg)', color: 'var(--primary)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+        <div className="md-card" style={{ overflow: 'hidden', marginBottom: 12, padding: 0 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '16px 20px',
+          }}>
+            <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>
+              3. MFA Methods
+            </span>
+            <button type="button" onClick={() => setMfaMethods(prev => [...prev, { ...BLANK_MFA }])} className="md-btn md-btn-tonal md-btn-sm">
               <span className="icon icon-sm">add</span>Add MFA
             </button>
           </div>
-          <div style={{ padding: mfaMethods.length ? '12px 16px' : '0', background: 'var(--surface)' }}>
-            {mfaMethods.length === 0 && <div style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13 }}>No MFA methods — click Add MFA to configure</div>}
+          <div style={{ padding: mfaMethods.length ? '4px 20px 20px' : '0 20px 20px', borderTop: '1px solid var(--border)' }}>
+            {mfaMethods.length === 0 && (
+              <div style={{ padding: '16px 0', color: 'var(--text-3)', fontSize: 14 }}>
+                No MFA methods — click Add MFA to configure
+              </div>
+            )}
             {mfaMethods.map((m, i) => (
-              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 10, position: 'relative' }}>
-                <button type="button" onClick={() => setMfaMethods(prev => prev.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
+              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginTop: 12, position: 'relative' }}>
+                <button type="button" onClick={() => setMfaMethods(prev => prev.filter((_, idx) => idx !== i))} style={{
+                  position: 'absolute', top: 8, right: 8,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  width: 28, height: 28, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--text-2)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)' }}
+                >
                   <span className="icon icon-sm">delete</span>
                 </button>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <FF label="Type"><select value={m.type} onChange={e => updateMfa(i, 'type', e.target.value)} style={inp}>{MFA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></FF>
-                  <FF label="App Name"><input value={m.app_name} onChange={e => updateMfa(i, 'app_name', e.target.value)} placeholder="e.g. Microsoft Authenticator" style={inp} /></FF>
-                  <FF label="Person Name"><input value={m.person_name} onChange={e => updateMfa(i, 'person_name', e.target.value)} style={inp} /></FF>
-                  <FF label="Person Email"><input type="email" value={m.person_email} onChange={e => updateMfa(i, 'person_email', e.target.value)} style={inp} /></FF>
-                  <FF label="Phone"><input type="tel" value={m.phone} onChange={e => updateMfa(i, 'phone', e.target.value)} style={inp} /></FF>
-                  <FF label="Notes"><input value={m.notes} onChange={e => updateMfa(i, 'notes', e.target.value)} style={inp} /></FF>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingRight: 32 }}>
+                  <FF label="Type"><select value={m.type} onChange={e => updateMfa(i, 'type', e.target.value)} className="md-select">{MFA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></FF>
+                  <FF label="App Name"><input value={m.app_name} onChange={e => updateMfa(i, 'app_name', e.target.value)} placeholder="e.g. Microsoft Authenticator" className="md-input" /></FF>
+                  <FF label="Person Name"><input value={m.person_name} onChange={e => updateMfa(i, 'person_name', e.target.value)} className="md-input" /></FF>
+                  <FF label="Person Email"><input type="email" value={m.person_email} onChange={e => updateMfa(i, 'person_email', e.target.value)} className="md-input" /></FF>
+                  <FF label="Phone"><input type="tel" value={m.phone} onChange={e => updateMfa(i, 'phone', e.target.value)} className="md-input" /></FF>
+                  <FF label="Notes"><input value={m.notes} onChange={e => updateMfa(i, 'notes', e.target.value)} className="md-input" /></FF>
                 </div>
               </div>
             ))}
@@ -273,11 +313,13 @@ export default function NewCredentialPage() {
         </div>
 
         {/* Authorized Users */}
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
-          <div style={{ padding: '12px 16px', background: 'var(--surface-2)' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Google Sans', sans-serif", color: 'var(--text-1)' }}>4. Authorized Users</span>
+        <div className="md-card" style={{ overflow: 'hidden', marginBottom: 12, padding: 0 }}>
+          <div style={{ padding: '16px 20px' }}>
+            <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>
+              4. Authorized Users
+            </span>
           </div>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
+          <div style={{ padding: '4px 20px 20px', borderTop: '1px solid var(--border)' }}>
             <AuthorizedUsersEditor users={authUsers} onChange={setAuthUsers} />
           </div>
         </div>
@@ -318,7 +360,7 @@ export default function NewCredentialPage() {
           <FF label="Created Date"><TI name="created_date" value={form.created_date} onChange={handleChange} type="date" /></FF>
           <FF label="Tags"><TI name="tags" value={form.tags} onChange={handleChange} placeholder="comma, separated, tags" /></FF>
           <div style={{ gridColumn: '1 / -1' }}>
-            <FF label="Notes"><textarea name="notes" value={form.notes} onChange={handleChange} rows={3} style={{ ...inp, resize: 'vertical' }} /></FF>
+            <FF label="Notes"><textarea name="notes" value={form.notes} onChange={handleChange} rows={3} className="md-textarea" /></FF>
           </div>
         </Sec>
       </form>
@@ -327,14 +369,15 @@ export default function NewCredentialPage() {
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
         background: 'var(--surface)', borderTop: '1px solid var(--border)',
-        padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12,
-        boxShadow: '0 -4px 16px rgba(0,0,0,.1)',
+        padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <button type="button" onClick={() => formRef.current?.requestSubmit()} disabled={submitting} className="md-btn md-btn-primary">
-          {submitting ? 'Creating…' : <><span className="icon icon-sm">save</span>Create Credential</>}
-        </button>
-        <button type="button" onClick={() => navigate('/credentials')} className="md-btn md-btn-outlined">Cancel</button>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>Ctrl+S to save</span>
+        <div style={{ maxWidth: 1440, margin: '0 auto', width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button type="button" onClick={() => formRef.current?.requestSubmit()} disabled={submitting} className="md-btn md-btn-primary">
+            {submitting ? 'Creating…' : <><span className="icon icon-sm">save</span>Create credential</>}
+          </button>
+          <button type="button" onClick={() => navigate('/credentials')} className="md-btn md-btn-text">Cancel</button>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>Ctrl+S to save</span>
+        </div>
       </div>
     </div>
   )
