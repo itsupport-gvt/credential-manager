@@ -110,18 +110,20 @@ export default function EditCredentialPage() {
   const [suggestions, setSuggestions] = useState<{
     service_names: string[]; service_urls: string[]; usernames: string[]
     recovery_emails: string[]; recovery_phones: string[]; backup_codes_locations: string[]
-    account_display_names: string[]; license_types: string[]; plan_tiers: string[]
+    account_display_names: string[]; account_ids: string[]; license_types: string[]; plan_tiers: string[]
     billing_emails: string[]; payment_references: string[]
-    server_hostnames: string[]; database_names: string[]; client_ids: string[]
+    server_hostnames: string[]; ports: string[]; database_names: string[]; client_ids: string[]
     tenant_id_apps: string[]; subscription_id_azures: string[]
+    mfa_app_names: string[]; mfa_person_names: string[]; mfa_person_emails: string[]
     managed_by: string[]; managed_by_emails: string[]; created_by: string[]; tags: string[]
   }>({
     service_names: [], service_urls: [], usernames: [],
     recovery_emails: [], recovery_phones: [], backup_codes_locations: [],
-    account_display_names: [], license_types: [], plan_tiers: [],
+    account_display_names: [], account_ids: [], license_types: [], plan_tiers: [],
     billing_emails: [], payment_references: [],
-    server_hostnames: [], database_names: [], client_ids: [],
+    server_hostnames: [], ports: [], database_names: [], client_ids: [],
     tenant_id_apps: [], subscription_id_azures: [],
+    mfa_app_names: [], mfa_person_names: [], mfa_person_emails: [],
     managed_by: [], managed_by_emails: [], created_by: [], tags: [],
   })
   const [refData, setRefData] = useState<ReferenceData>({})
@@ -160,6 +162,26 @@ export default function EditCredentialPage() {
     }, 50)
     return () => clearTimeout(t)
   }, [form?.credential_id])  // re-focus when we switch credentials
+
+  // Scroll focused field into view, keeping it clear of the fixed header + save bar
+  useEffect(() => {
+    const el = formRef.current
+    if (!el) return
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement
+      if (!target || target.tagName === 'BUTTON') return
+      const rect = target.getBoundingClientRect()
+      const HEADER_H = 72   // 56px header + 16px breathing room
+      const FOOTER_H = 80   // 64px save bar + 16px breathing room
+      if (rect.top < HEADER_H) {
+        window.scrollBy({ top: rect.top - HEADER_H, behavior: 'smooth' })
+      } else if (rect.bottom > window.innerHeight - FOOTER_H) {
+        window.scrollBy({ top: rect.bottom - (window.innerHeight - FOOTER_H), behavior: 'smooth' })
+      }
+    }
+    el.addEventListener('focusin', onFocusIn)
+    return () => el.removeEventListener('focusin', onFocusIn)
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -363,10 +385,10 @@ export default function EditCredentialPage() {
                 </button>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingRight: 32 }}>
                   <FF label="Type"><select value={m.type} onChange={e => updateMfa(i, 'type', e.target.value)} className="md-select">{MFA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></FF>
-                  <FF label="App Name"><input value={m.app_name} onChange={e => updateMfa(i, 'app_name', e.target.value)} placeholder="e.g. Microsoft Authenticator" className="md-input" /></FF>
-                  <FF label="Person Name"><input value={m.person_name} onChange={e => updateMfa(i, 'person_name', e.target.value)} className="md-input" /></FF>
-                  <FF label="Person Email"><input type="email" value={m.person_email} onChange={e => updateMfa(i, 'person_email', e.target.value)} className="md-input" /></FF>
-                  <FF label="Phone"><input type="tel" value={m.phone} onChange={e => updateMfa(i, 'phone', e.target.value)} className="md-input" /></FF>
+                  <FF label="App Name"><AutoInput name={`mfa_${i}_app_name`} value={m.app_name} onChange={e => updateMfa(i, 'app_name', e.target.value)} suggestions={suggestions.mfa_app_names} placeholder="e.g. Microsoft Authenticator" /></FF>
+                  <FF label="Person Name"><AutoInput name={`mfa_${i}_person_name`} value={m.person_name} onChange={e => updateMfa(i, 'person_name', e.target.value)} suggestions={suggestions.mfa_person_names} /></FF>
+                  <FF label="Person Email"><AutoInput name={`mfa_${i}_person_email`} value={m.person_email} onChange={e => updateMfa(i, 'person_email', e.target.value)} suggestions={suggestions.mfa_person_emails} type="email" /></FF>
+                  <FF label="Phone"><AutoInput name={`mfa_${i}_phone`} value={m.phone} onChange={e => updateMfa(i, 'phone', e.target.value)} suggestions={suggestions.recovery_phones} type="tel" /></FF>
                   <FF label="Notes"><input value={m.notes} onChange={e => updateMfa(i, 'notes', e.target.value)} className="md-input" /></FF>
                 </div>
               </div>
@@ -388,7 +410,7 @@ export default function EditCredentialPage() {
 
         <Sec title="5. Account Details" defaultOpen={false}>
           <FF label="Account Display Name"><AutoInput name="account_display_name" value={form.account_display_name ?? ''} onChange={handleChange} suggestions={suggestions.account_display_names} /></FF>
-          <FF label="Account ID"><TI name="account_id" value={form.account_id} onChange={handleChange} /></FF>
+          <FF label="Account ID"><AutoInput name="account_id" value={form.account_id ?? ''} onChange={handleChange} suggestions={suggestions.account_ids} /></FF>
           <FF label="License Type"><AutoInput name="license_type" value={form.license_type ?? ''} onChange={handleChange} suggestions={suggestions.license_types} /></FF>
           <FF label="Plan Tier"><AutoInput name="plan_tier" value={form.plan_tier ?? ''} onChange={handleChange} suggestions={suggestions.plan_tiers} /></FF>
           <FF label="Subscription Start"><TI name="subscription_start" value={form.subscription_start} onChange={handleChange} type="date" /></FF>
@@ -410,7 +432,7 @@ export default function EditCredentialPage() {
           <FF label="Tenant ID (App)"><AutoInput name="tenant_id_app" value={form.tenant_id_app ?? ''} onChange={handleChange} suggestions={suggestions.tenant_id_apps} /></FF>
           <FF label="Azure Subscription ID"><AutoInput name="subscription_id_azure" value={form.subscription_id_azure ?? ''} onChange={handleChange} suggestions={suggestions.subscription_id_azures} /></FF>
           <FF label="Server Hostname"><AutoInput name="server_hostname" value={form.server_hostname ?? ''} onChange={handleChange} suggestions={suggestions.server_hostnames} /></FF>
-          <FF label="Port"><TI name="port" value={form.port} onChange={handleChange} type="number" /></FF>
+          <FF label="Port"><AutoInput name="port" value={form.port ?? ''} onChange={handleChange} suggestions={suggestions.ports} placeholder="e.g. 443, 22, 3306" /></FF>
           <FF label="Protocol"><SI name="protocol" value={form.protocol} onChange={handleChange} options={PROTOCOLS} placeholder="Select…" /></FF>
           <FF label="Database Name"><AutoInput name="database_name" value={form.database_name ?? ''} onChange={handleChange} suggestions={suggestions.database_names} /></FF>
         </Sec>

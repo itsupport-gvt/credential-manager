@@ -424,6 +424,27 @@ def get_suggestions(
                         break
         return sorted(seen)
 
+    # MFA methods stored as JSON arrays — extract unique values for a given key
+    def _unique_mfa(field: str) -> list[str]:
+        import json as _json
+        seen: set[str] = set()
+        rows = db.query(DBCredential.mfa_methods_json).filter(
+            DBCredential.mfa_methods_json != None,
+            DBCredential.mfa_methods_json != "",
+            DBCredential.mfa_methods_json != "[]",
+        ).all()
+        for (raw,) in rows:
+            if not raw:
+                continue
+            try:
+                for m in _json.loads(raw):
+                    val = str(m.get(field, "") or "").strip()
+                    if val:
+                        seen.add(val)
+            except Exception:
+                pass
+        return sorted(seen)
+
     return {
         # Originals
         "service_names":           _unique(DBCredential.service_name),
@@ -437,6 +458,7 @@ def get_suggestions(
 
         # Account / billing
         "account_display_names":    _unique(DBCredential.account_display_name),
+        "account_ids":              _unique(DBCredential.account_id),
         "license_types":            _unique(DBCredential.license_type),
         "plan_tiers":               _unique(DBCredential.plan_tier),
         "billing_emails":           _unique(DBCredential.billing_email),
@@ -444,10 +466,16 @@ def get_suggestions(
 
         # Technical / API
         "server_hostnames":         _unique(DBCredential.server_hostname),
+        "ports":                    _unique(DBCredential.port),
         "database_names":           _unique(DBCredential.database_name),
         "client_ids":               _unique(DBCredential.client_id),
         "tenant_id_apps":           _unique(DBCredential.tenant_id_app),
         "subscription_id_azures":   _unique(DBCredential.subscription_id_azure),
+
+        # MFA (across all mfa_methods_json arrays)
+        "mfa_app_names":            _unique_mfa("app_name"),
+        "mfa_person_names":         _unique_mfa("person_name"),
+        "mfa_person_emails":        _unique_mfa("person_email"),
 
         # Ownership
         "managed_by":               _unique(DBCredential.managed_by),
