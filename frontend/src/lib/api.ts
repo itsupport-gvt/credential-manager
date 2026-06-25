@@ -199,7 +199,7 @@ export const api = {
   // Sync — these need the user's delegated Graph token forwarded to the backend.
   // scope: 'all' (default) | 'credentials' (creds+logs) | 'reference' (tenants, categories, users, ref-data)
   pushToExcel: (scope: 'all' | 'credentials' | 'reference' = 'all') =>
-    req<{ pushed_credentials: number; pushed_logs: number; pushed_tenants?: number; pushed_users?: number; pushed_ref_data?: number }>(
+    req<{ pushed_credentials: number; pushed_logs: number; pushed_tenants?: number; pushed_categories?: number; pushed_users?: number; pushed_ref_data?: number }>(
       `/api/sync/push?scope=${scope}`, { method: 'POST', graph: true },
     ),
 

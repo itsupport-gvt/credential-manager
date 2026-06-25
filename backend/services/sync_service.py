@@ -504,6 +504,7 @@ def sync_from_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict
                     for k, v in fields.items():
                         if k != "category_name" and hasattr(existing, k):
                             setattr(existing, k, _str(v))
+                    existing.needs_sync = False
                 else:
                     cid = _str(fields.get("category_id", "")) or f"CAT-{cat_name[:6].upper()}"
                     ccode = _str(fields.get("category_code", "")) or cat_name[:6].upper()
@@ -513,6 +514,7 @@ def sync_from_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict
                         category_code=ccode,
                         description=_str(fields.get("description", "")),
                         subcategories=_str(fields.get("subcategories", "")),
+                        needs_sync=False,
                     ))
                 counts["categories"] += 1
 
@@ -594,6 +596,7 @@ def sync_to_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict[s
         "pushed_credentials": 0,
         "pushed_logs": 0,
         "pushed_tenants": 0,
+        "pushed_categories": 0,
     }
 
     try:
@@ -743,7 +746,48 @@ def sync_to_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict[s
             logger.info("Pushed %d tenants to Excel.", counts["pushed_tenants"])
 
         # ---------------------------------------------------------------- #
-        # 4. Users  (scope: reference)
+        # 4. Categories  (scope: reference)
+        # ---------------------------------------------------------------- #
+        pending_cats = (
+            db.query(DBCategory)
+            .filter(DBCategory.needs_sync == True)  # noqa: E712
+            .all()
+        ) if do_ref else []
+        if pending_cats:
+            cat_headers = graph.get_table_headers(config.CAT_TABLE)
+            excel_cat_rows = graph.get_table_rows(config.CAT_TABLE)
+            excel_cat_index: dict[str, int] = {}
+            for er in excel_cat_rows:
+                cname = _str(er.get("Category_Name", ""))
+                if cname:
+                    excel_cat_index[cname] = er["_row_index"]
+
+            for cat in pending_cats:
+                row_dict = {
+                    "CategoryID":    cat.category_id or "",
+                    "Category_Name": cat.category_name or "",
+                    "Category_Code": cat.category_code or "",
+                    "Description":   cat.description or "",
+                    "Subcategories": cat.subcategories or "",
+                }
+                if cat.category_name in excel_cat_index:
+                    graph.update_table_row(
+                        config.CAT_TABLE,
+                        excel_cat_index[cat.category_name],
+                        row_dict,
+                        headers=cat_headers,
+                    )
+                else:
+                    graph.add_table_row(config.CAT_TABLE, row_dict, headers=cat_headers)
+
+                cat.needs_sync = False
+                counts["pushed_categories"] += 1
+
+            db.commit()
+            logger.info("Pushed %d categories to Excel.", counts["pushed_categories"])
+
+        # ---------------------------------------------------------------- #
+        # 5. Users  (scope: reference)
         # ---------------------------------------------------------------- #
         pending_users = (
             db.query(DBUser)

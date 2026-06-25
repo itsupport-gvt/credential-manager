@@ -201,6 +201,7 @@ class DBCategory(Base):
     description = Column(String, default="")
     # Stored as semicolon-separated string, exposed as List[str] via Pydantic
     subcategories = Column(Text, default="")
+    needs_sync = Column(Boolean, default=True)
 
 
 # ---------------------------------------------------------------------------

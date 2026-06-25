@@ -388,6 +388,7 @@ def create_category(body: CreateCategoryRequest, db: Session = Depends(get_db)) 
         category_code=body.category_code,
         description=body.description or "",
         subcategories=body.subcategories or "",
+        needs_sync=True,
     )
     db.add(cat)
     db.commit()
@@ -404,6 +405,7 @@ def update_category(category_id: str, body: UpdateCategoryRequest, db: Session =
         val = getattr(body, field, None)
         if val is not None:
             setattr(cat, field, val)
+    cat.needs_sync = True
     db.commit()
     db.refresh(cat)
     return _cat_to_response(cat)

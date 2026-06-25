@@ -73,7 +73,9 @@ _MIGRATIONS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "change_log": [],
     "tenants": [],
-    "categories": [],
+    "categories": [
+        ("needs_sync", "INTEGER", "DEFAULT 1"),  # 1 = True; existing rows marked pending
+    ],
     "users": [],
     "auth_users": [],
     "reference_data": [],  # new table – created by create_all

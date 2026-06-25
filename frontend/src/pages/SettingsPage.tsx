@@ -117,9 +117,10 @@ export default function SettingsPage() {
     try {
       const r = await api.pushToExcel('reference')
       const parts: string[] = []
-      if (r.pushed_tenants)  parts.push(`${r.pushed_tenants} tenants`)
-      if (r.pushed_users)    parts.push(`${r.pushed_users} users`)
-      if (r.pushed_ref_data) parts.push(`${r.pushed_ref_data} list values`)
+      if (r.pushed_tenants)     parts.push(`${r.pushed_tenants} tenants`)
+      if (r.pushed_categories)  parts.push(`${r.pushed_categories} categories`)
+      if (r.pushed_users)       parts.push(`${r.pushed_users} users`)
+      if (r.pushed_ref_data)    parts.push(`${r.pushed_ref_data} list values`)
       showToast(parts.length ? `Pushed ${parts.join(', ')}` : 'Nothing pending to push', 'success')
     } catch (e) { showToast(e instanceof Error ? e.message : 'Push failed', 'error') }
     finally { setRefPushBusy(false) }
