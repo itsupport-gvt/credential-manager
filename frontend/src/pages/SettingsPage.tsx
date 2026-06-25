@@ -51,6 +51,8 @@ export default function SettingsPage() {
   const [syncLoading, setSyncLoading] = useState(true)
   const [pushBusy, setPushBusy] = useState(false)
   const [pullBusy, setPullBusy] = useState(false)
+  const [refPushBusy, setRefPushBusy] = useState(false)
+  const [refPullBusy, setRefPullBusy] = useState(false)
   const [resetBusy, setResetBusy] = useState(false)
   const [configLoading, setConfigLoading] = useState(false)
   const [configSaving, setConfigSaving] = useState(false)
@@ -87,10 +89,11 @@ export default function SettingsPage() {
     api.getAllRefDataItems().then(setRefItems).catch(() => {}).finally(() => setRefLoading(false))
   }, [])
 
+  // Credentials + change log (same scope as the top-bar Sync button)
   async function handlePush() {
     setPushBusy(true)
     try {
-      const r = await api.pushToExcel()
+      const r = await api.pushToExcel('credentials')
       showToast(`Pushed ${r.pushed_credentials} credentials and ${r.pushed_logs} log entries`, 'success')
       const s = await api.getSyncStatus(); setSyncStatus(s)
     } catch (e) { showToast(e instanceof Error ? e.message : 'Push failed', 'error') }
@@ -100,11 +103,40 @@ export default function SettingsPage() {
   async function handlePull() {
     setPullBusy(true)
     try {
-      const r = await api.pullFromExcel()
+      const r = await api.pullFromExcel('credentials')
       showToast(`Pulled ${r.credentials} credentials and ${r.logs} log entries`, 'success')
       const s = await api.getSyncStatus(); setSyncStatus(s)
     } catch (e) { showToast(e instanceof Error ? e.message : 'Pull failed', 'error') }
     finally { setPullBusy(false) }
+  }
+
+  // Reference data (tenants, categories, staff users, dropdown lists)
+  async function handleRefPush() {
+    setRefPushBusy(true)
+    try {
+      const r = await api.pushToExcel('reference')
+      const parts: string[] = []
+      if (r.pushed_tenants)  parts.push(`${r.pushed_tenants} tenants`)
+      if (r.pushed_users)    parts.push(`${r.pushed_users} users`)
+      if (r.pushed_ref_data) parts.push(`${r.pushed_ref_data} list values`)
+      showToast(parts.length ? `Pushed ${parts.join(', ')}` : 'Nothing pending to push', 'success')
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Push failed', 'error') }
+    finally { setRefPushBusy(false) }
+  }
+
+  async function handleRefPull() {
+    setRefPullBusy(true)
+    try {
+      const r = await api.pullFromExcel('reference')
+      const parts: string[] = []
+      if (r.tenants)    parts.push(`${r.tenants} tenants`)
+      if (r.categories) parts.push(`${r.categories} categories`)
+      if (r.users)      parts.push(`${r.users} users`)
+      showToast(parts.length ? `Pulled ${parts.join(', ')}` : 'Reference data already up to date', 'success')
+      // Refresh ref-data list shown on this page
+      api.getAllRefDataItems().then(setRefItems).catch(() => {})
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Pull failed', 'error') }
+    finally { setRefPullBusy(false) }
   }
 
   async function handleResetDb() {
@@ -213,9 +245,10 @@ export default function SettingsPage() {
           ) : <div style={{ fontSize: 14, color: 'var(--text-3)' }}>Could not load sync status</div>}
         </Card>
 
-        <Card title="SharePoint sync">
+        <Card title="Credentials sync">
           <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 0, marginBottom: 20, lineHeight: 1.6 }}>
-            Push local changes to SharePoint or pull the latest data from the Excel file.
+            Push or pull <strong>credentials</strong> and the <strong>change log</strong>.
+            This is the same scope as the Sync button in the top bar.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button className="md-btn md-btn-primary" onClick={handlePush} disabled={pushBusy}>
@@ -227,6 +260,27 @@ export default function SettingsPage() {
               {pullBusy
                 ? <><span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>Pulling…</>
                 : <><span className="icon icon-sm">download</span>Pull from SharePoint</>}
+            </button>
+          </div>
+        </Card>
+
+        <Card title="Reference data sync">
+          <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 0, marginBottom: 20, lineHeight: 1.6 }}>
+            Push or pull <strong>tenants</strong>, <strong>categories &amp; subcategories</strong>,
+            <strong> staff users</strong>, and <strong>dropdown lists</strong> below.
+            Sync this whenever you edit reference data — kept separate from credentials so the
+            top-bar sync stays fast.
+          </p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button className="md-btn md-btn-primary" onClick={handleRefPush} disabled={refPushBusy}>
+              {refPushBusy
+                ? <><span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>Pushing…</>
+                : <><span className="icon icon-sm">upload</span>Push reference data</>}
+            </button>
+            <button className="md-btn md-btn-outlined" onClick={handleRefPull} disabled={refPullBusy}>
+              {refPullBusy
+                ? <><span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>Pulling…</>
+                : <><span className="icon icon-sm">download</span>Pull reference data</>}
             </button>
           </div>
         </Card>

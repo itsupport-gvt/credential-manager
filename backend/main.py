@@ -50,7 +50,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
@@ -163,12 +163,19 @@ def _graph_client_from_header(x_ms_graph_token: str | None) -> GraphClient:
 # ---------------------------------------------------------------------------
 
 @app.post("/api/sync/push", tags=["sync"])
-def sync_push(x_ms_graph_token: str | None = Header(default=None)) -> dict:
-    """Push all pending (needs_sync=True) records to SharePoint Excel."""
+def sync_push(
+    scope: str = "all",
+    x_ms_graph_token: str | None = Header(default=None),
+) -> dict:
+    """Push pending (needs_sync=True) records to SharePoint Excel.
+
+    scope: "all" (default), "credentials" (creds+logs), or "reference"
+    (tenants, staff users, reference data).
+    """
     graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
-        result = sync_to_excel(db, graph)
+        result = sync_to_excel(db, graph, scope=scope)
         return {"status": "ok", "result": result}
     except Exception as exc:
         return JSONResponse(
@@ -180,12 +187,19 @@ def sync_push(x_ms_graph_token: str | None = Header(default=None)) -> dict:
 
 
 @app.post("/api/sync/pull", tags=["sync"])
-def sync_pull(x_ms_graph_token: str | None = Header(default=None)) -> dict:
-    """Pull all rows from SharePoint Excel into SQLite."""
+def sync_pull(
+    scope: str = "all",
+    x_ms_graph_token: str | None = Header(default=None),
+) -> dict:
+    """Pull rows from SharePoint Excel into SQLite.
+
+    scope: "all" (default), "credentials" (creds+logs), or "reference"
+    (tenants, categories, staff users).
+    """
     graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
-        result = sync_from_excel(db, graph)
+        result = sync_from_excel(db, graph, scope=scope)
         return {"status": "ok", "result": result}
     except Exception as exc:
         return JSONResponse(

@@ -262,12 +262,20 @@ def _str(val: Any) -> str:
 # sync_from_excel
 # ---------------------------------------------------------------------------
 
-def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
+def sync_from_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict[str, int]:
     """
     Pull all rows from SharePoint workbook tables into SQLite.
 
+    scope: which tables to sync —
+      "all"          – everything (default, backwards-compatible)
+      "credentials"  – credentials + change log only
+      "reference"    – tenants, categories, staff users
+
     Returns a dict with counts: {credentials, logs, tenants, categories, users}.
     """
+    do_creds = scope in ("all", "credentials")
+    do_ref   = scope in ("all", "reference")
+
     sync_status["state"] = "syncing"
     sync_status["error"] = None
     counts: dict[str, int] = {
@@ -280,10 +288,10 @@ def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
 
     try:
         # ---------------------------------------------------------------- #
-        # 1. tblCredentials
+        # 1. tblCredentials  (scope: credentials)
         # ---------------------------------------------------------------- #
         try:
-            rows = graph.get_table_rows(config.CRED_TABLE)
+            rows = graph.get_table_rows(config.CRED_TABLE) if do_creds else []
             for row in rows:
                 fields = _map_row(row, CRED_COLUMN_MAP)
                 cred_id = _str(fields.get("credential_id", ""))
@@ -348,10 +356,10 @@ def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             db.rollback()
 
         # ---------------------------------------------------------------- #
-        # 2. tblChangeLog
+        # 2. tblChangeLog  (scope: credentials)
         # ---------------------------------------------------------------- #
         try:
-            rows = graph.get_table_rows(config.LOG_TABLE)
+            rows = graph.get_table_rows(config.LOG_TABLE) if do_creds else []
             for row in rows:
                 fields = _map_row(row, LOG_COLUMN_MAP)
                 log_id = _str(fields.get("log_id", ""))
@@ -391,10 +399,10 @@ def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             db.rollback()
 
         # ---------------------------------------------------------------- #
-        # 3. tblTenants
+        # 3. tblTenants  (scope: reference)
         # ---------------------------------------------------------------- #
         try:
-            rows = graph.get_table_rows(config.TENANT_TABLE)
+            rows = graph.get_table_rows(config.TENANT_TABLE) if do_ref else []
             for row in rows:
                 fields = _map_row(row, TENANT_COLUMN_MAP)
                 code = _str(fields.get("tenant_code", ""))
@@ -434,10 +442,10 @@ def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             db.rollback()
 
         # ---------------------------------------------------------------- #
-        # 4. tblCategories
+        # 4. tblCategories  (scope: reference)
         # ---------------------------------------------------------------- #
         try:
-            rows = graph.get_table_rows(config.CAT_TABLE)
+            rows = graph.get_table_rows(config.CAT_TABLE) if do_ref else []
             for row in rows:
                 fields = _map_row(row, CAT_COLUMN_MAP)
                 cat_name = _str(fields.get("category_name", ""))
@@ -469,10 +477,10 @@ def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             db.rollback()
 
         # ---------------------------------------------------------------- #
-        # 5. tblUsers
+        # 5. tblUsers  (scope: reference)
         # ---------------------------------------------------------------- #
         try:
-            rows = graph.get_table_rows(config.USER_TABLE)
+            rows = graph.get_table_rows(config.USER_TABLE) if do_ref else []
             for row in rows:
                 fields = _map_row(row, USER_COLUMN_MAP)
                 email = _str(fields.get("email", ""))
@@ -520,12 +528,20 @@ def sync_from_excel(db: Session, graph: GraphClient) -> dict[str, int]:
 # sync_to_excel
 # ---------------------------------------------------------------------------
 
-def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
+def sync_to_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict[str, int]:
     """
     Push pending (needs_sync=True) rows to the SharePoint workbook.
 
-    Returns {pushed_credentials, pushed_logs, pushed_tenants}.
+    scope: which tables to push —
+      "all"          – everything (default)
+      "credentials"  – credentials + change log only
+      "reference"    – tenants, staff users, reference data
+
+    Returns {pushed_credentials, pushed_logs, pushed_tenants, ...}.
     """
+    do_creds = scope in ("all", "credentials")
+    do_ref   = scope in ("all", "reference")
+
     sync_status["state"] = "syncing"
     sync_status["error"] = None
     counts: dict[str, int] = {
@@ -536,13 +552,13 @@ def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
 
     try:
         # ---------------------------------------------------------------- #
-        # 1. Credentials
+        # 1. Credentials  (scope: credentials)
         # ---------------------------------------------------------------- #
         pending_creds = (
             db.query(DBCredential)
             .filter(DBCredential.needs_sync == True)  # noqa: E712
             .all()
-        )
+        ) if do_creds else []
         if pending_creds:
             headers = graph.get_table_headers(config.CRED_TABLE)
             # Build lookup: credential_id → row_index from Excel
@@ -600,13 +616,13 @@ def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             logger.info("Pushed %d credentials to Excel.", counts["pushed_credentials"])
 
         # ---------------------------------------------------------------- #
-        # 2. Change log
+        # 2. Change log  (scope: credentials)
         # ---------------------------------------------------------------- #
         pending_logs = (
             db.query(DBChangeLog)
             .filter(DBChangeLog.needs_sync == True)  # noqa: E712
             .all()
-        )
+        ) if do_creds else []
         if pending_logs:
             log_headers = graph.get_table_headers(config.LOG_TABLE)
             for log_row in pending_logs:
@@ -641,13 +657,13 @@ def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             logger.info("Pushed %d log entries to Excel.", counts["pushed_logs"])
 
         # ---------------------------------------------------------------- #
-        # 3. Tenants
+        # 3. Tenants  (scope: reference)
         # ---------------------------------------------------------------- #
         pending_tenants = (
             db.query(DBTenant)
             .filter(DBTenant.needs_sync == True)  # noqa: E712
             .all()
-        )
+        ) if do_ref else []
         if pending_tenants:
             tenant_headers = graph.get_table_headers(config.TENANT_TABLE)
             excel_tenant_rows = graph.get_table_rows(config.TENANT_TABLE)
@@ -689,13 +705,13 @@ def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             logger.info("Pushed %d tenants to Excel.", counts["pushed_tenants"])
 
         # ---------------------------------------------------------------- #
-        # 4. Users
+        # 4. Users  (scope: reference)
         # ---------------------------------------------------------------- #
         pending_users = (
             db.query(DBUser)
             .filter(DBUser.needs_sync == True)  # noqa: E712
             .all()
-        )
+        ) if do_ref else []
         if pending_users:
             user_headers = graph.get_table_headers(config.USER_TABLE)
             excel_user_rows = graph.get_table_rows(config.USER_TABLE)
@@ -733,13 +749,13 @@ def sync_to_excel(db: Session, graph: GraphClient) -> dict[str, int]:
             logger.info("Pushed %d users to Excel.", counts.get("pushed_users", 0))
 
         # ---------------------------------------------------------------- #
-        # 5. Reference Data
+        # 5. Reference Data  (scope: reference)
         # ---------------------------------------------------------------- #
         pending_ref = (
             db.query(DBReferenceData)
             .filter(DBReferenceData.needs_sync == True)  # noqa: E712
             .all()
-        )
+        ) if do_ref else []
         if pending_ref:
             try:
                 ref_headers = graph.get_table_headers(config.REF_DATA_TABLE)

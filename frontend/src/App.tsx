@@ -92,8 +92,10 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
   async function doSync(action: 'push' | 'pull' | 'both') {
     setBusy(true); setOpen(false)
     try {
-      if (action === 'push' || action === 'both') { const r = await api.pushToExcel(); showToast(`Pushed ${r.pushed_credentials} credentials`, 'success') }
-      if (action === 'pull' || action === 'both') { const r = await api.pullFromExcel(); showToast(`Pulled ${r.credentials} credentials`, 'success') }
+      // Top-bar button syncs credentials + change log only. Reference data
+      // (tenants, categories, users, dropdown lists) syncs from Settings.
+      if (action === 'push' || action === 'both') { const r = await api.pushToExcel('credentials'); showToast(`Pushed ${r.pushed_credentials} credentials`, 'success') }
+      if (action === 'pull' || action === 'both') { const r = await api.pullFromExcel('credentials'); showToast(`Pulled ${r.credentials} credentials`, 'success') }
       const s = await api.getSyncStatus(); setPending(s.pending_credentials + s.pending_logs)
     } catch (err) { showToast(err instanceof Error ? err.message : 'Sync failed', 'error') }
     finally { setBusy(false) }

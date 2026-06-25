@@ -65,9 +65,9 @@
 */
 html.dark {
   --bg:         #1f1f1f;
-  --surface:    #2d2e30;
-  --surface-2:  #282a2c;
-  --surface-3:  #35373a;
+  --surface:    #141414;
+  --surface-2:  #1a1a1a;
+  --surface-3:  #242424;
   --border:     #3c4043;
   --border-2:   #5f6368;
 
@@ -263,6 +263,8 @@ button, input, select, textarea { font-family: inherit; }
     background: var(--surface);
     color: var(--text-2);
     white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   /* Form fields */
@@ -292,7 +294,19 @@ button, input, select, textarea { font-family: inherit; }
     box-shadow: 0 0 0 1px var(--primary);
   }
   .md-input::placeholder,
-  .md-textarea::placeholder { color: var(--text-3); }
+  .md-textarea::placeholder { color: var(--text-3); user-select: none; -webkit-user-select: none; }
+
+  .md-input:disabled,
+  .md-select:disabled,
+  .md-textarea:disabled {
+    background: var(--surface-2);
+    color: var(--text-3);
+    cursor: not-allowed;
+    border-color: var(--border);
+  }
+  .md-input:disabled:hover,
+  .md-select:disabled:hover,
+  .md-textarea:disabled:hover { border-color: var(--border); }
   .md-select {
     cursor: pointer;
     padding-right: 36px;
@@ -307,7 +321,7 @@ button, input, select, textarea { font-family: inherit; }
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23bdc1c6' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   }
 
-  /* Labels */
+  /* Labels — non-selectable UI text */
   .md-label {
     display: block;
     font-size: 12px;
@@ -315,6 +329,8 @@ button, input, select, textarea { font-family: inherit; }
     color: var(--text-2);
     margin-bottom: 6px;
     letter-spacing: .1px;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .md-section-label {
@@ -325,9 +341,11 @@ button, input, select, textarea { font-family: inherit; }
     text-transform: uppercase;
     color: var(--text-2);
     margin-bottom: 12px;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
-  /* Page titles */
+  /* Page titles — non-selectable UI chrome */
   .page-title {
     font-family: 'Google Sans', sans-serif;
     font-size: 22px;
@@ -335,19 +353,24 @@ button, input, select, textarea { font-family: inherit; }
     color: var(--text-1);
     letter-spacing: 0;
     line-height: 1.2;
+    user-select: none;
+    -webkit-user-select: none;
   }
   .page-subtitle {
     font-size: 13px;
     color: var(--text-2);
     margin-top: 4px;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
-  /* Section title (subordinate to page title) */
   .section-title {
     font-family: 'Google Sans', sans-serif;
     font-size: 14px;
     font-weight: 500;
     color: var(--text-1);
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   /* Badges — flat, low-contrast tonal, no border */
@@ -367,6 +390,13 @@ button, input, select, textarea { font-family: inherit; }
     letter-spacing: .1px;
     white-space: nowrap;
   }
+  .badge-active,
+  .badge-warn,
+  .badge-neutral,
+  .badge-danger,
+  .badge-purple,
+  .badge-blue { user-select: none; -webkit-user-select: none; }
+
   .badge-active  { background: var(--success-bg); color: var(--success); }
   .badge-warn    { background: var(--warn-bg);    color: var(--warn);    }
   .badge-neutral { background: var(--surface-3);  color: var(--text-2);  }
@@ -374,6 +404,9 @@ button, input, select, textarea { font-family: inherit; }
   .badge-purple  { background: #f3e8fd;           color: #7b1fa2;        }
   .badge-blue    { background: var(--primary-bg); color: var(--primary); }
   html.dark .badge-purple { background: #2d1b3d; color: #d1a3e8; }
+
+  /* Table column headers — chrome, not data */
+  table thead th { user-select: none; -webkit-user-select: none; }
 
   /* Table row hover */
   .md-row { transition: background-color .12s ease; }

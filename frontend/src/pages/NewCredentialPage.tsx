@@ -139,6 +139,18 @@ export default function NewCredentialPage() {
     api.getReferenceData().then(setRefData).catch(() => {})
   }, [])
 
+  // Auto-focus the first form field so the user can start typing immediately
+  // (and Tab through the form without reaching for the mouse).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const first = formRef.current?.querySelector<HTMLElement>(
+        'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      )
+      first?.focus()
+    }, 50)
+    return () => clearTimeout(t)
+  }, [])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -238,9 +250,28 @@ export default function NewCredentialPage() {
             </select>
           </FF>
           <FF label="Subcategory">
-            {subcategories.length > 0
-              ? <SI name="subcategory" value={form.subcategory} onChange={handleChange} options={subcategories} placeholder="Select…" />
-              : <TI name="subcategory" value={form.subcategory} onChange={handleChange} />}
+            {subcategories.length > 0 ? (
+              <select
+                name="subcategory"
+                value={form.subcategory}
+                onChange={handleChange}
+                className="md-select"
+                disabled={!form.category}
+              >
+                <option value="">{form.category ? 'Select…' : 'Select category first'}</option>
+                {subcategories.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input
+                type="text"
+                name="subcategory"
+                value={form.subcategory}
+                onChange={handleChange}
+                className="md-input"
+                disabled={!form.category}
+                placeholder={form.category ? '' : 'Select category first'}
+              />
+            )}
           </FF>
           <FF label="Service Name" required>
             <AutoInput name="service_name" value={form.service_name} onChange={handleChange} suggestions={suggestions.service_names} required />
@@ -312,9 +343,9 @@ export default function NewCredentialPage() {
           </div>
         </div>
 
-        {/* Authorized Users */}
-        <div className="md-card" style={{ overflow: 'hidden', marginBottom: 12, padding: 0 }}>
-          <div style={{ padding: '16px 20px' }}>
+        {/* Authorized Users — overflow visible so the directory picker dropdown isn't clipped */}
+        <div className="md-card" style={{ marginBottom: 12, padding: 0 }}>
+          <div style={{ padding: '16px 20px', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
             <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>
               4. Authorized Users
             </span>

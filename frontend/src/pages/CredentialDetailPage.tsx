@@ -7,6 +7,32 @@ import { PriorityBadge } from '../components/PriorityBadge'
 import { MaskedField } from '../components/MaskedField'
 import { useToast } from '../App'
 
+function CopyableValue({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    await navigator.clipboard.writeText(value)
+    setCopied(true); setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span>{value}</span>
+      <button
+        onClick={copy}
+        title="Copy"
+        style={{
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          padding: 4, color: copied ? 'var(--success)' : 'var(--text-3)',
+          display: 'flex', alignItems: 'center', borderRadius: 4,
+        }}
+        onMouseEnter={e => { if (!copied) e.currentTarget.style.color = 'var(--primary)' }}
+        onMouseLeave={e => { if (!copied) e.currentTarget.style.color = 'var(--text-3)' }}
+      >
+        <span className="icon icon-sm">{copied ? 'check' : 'content_copy'}</span>
+      </button>
+    </span>
+  )
+}
+
 function Section({ title, open: defaultOpen = true, children }: { title: string; open?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
@@ -327,7 +353,7 @@ export default function CredentialDetailPage() {
           </Section>
 
           <Section title="2. Authentication">
-            <FR label="Username / Email" value={fmt(cred.username_email)} />
+            <FR label="Username / Email" value={cred.username_email ? <CopyableValue value={cred.username_email} /> : null} />
             <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Password</div>
               <MaskedField label="" credentialId={cred.credential_id} field="password" hasValue={cred.has_password} />
