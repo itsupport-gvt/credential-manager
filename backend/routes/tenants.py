@@ -18,7 +18,7 @@ from models_db import DBCategory, DBTenant, DBUser
 # ── Category seed data (mirrors Excel Categories sheet) ─────────────────────
 _CATEGORY_SEED = [
     ("CAT-M365", "Microsoft 365", "M365", "Microsoft 365 tenant and service accounts",
-     "Global Admin;Exchange Admin;SharePoint Admin;Teams Admin;User Account;Mailbox Access (OTP/SSO);Service Account"),
+     "Global Admin;Exchange Admin;SharePoint Admin;Teams Admin;User Account;Mailbox Access (OTP/SSO);Service Account;365 Office App"),
     ("CAT-CLOUD", "Cloud Infrastructure", "CLOUD", "Amazon Web Services, Microsoft Azure, DigitalOcean and other cloud providers",
      "AWS Root;AWS IAM User;Azure Portal;Azure Sub Owner;DigitalOcean;Google Cloud Portal;Service Principal"),
     ("CAT-DNS", "Domain & DNS", "DNS", "Domain registrars, DNS hosting and SSL certificates",
@@ -57,22 +57,15 @@ _CATEGORY_SEED = [
 
 
 def seed_categories(db: Session) -> None:
-    """Populate or update the categories table to match _CATEGORY_SEED."""
-    seed_map = {cat[0]: cat for cat in _CATEGORY_SEED}
+    """Insert seed categories that don't yet exist. Never overwrites synced data."""
     for cat_id, name, code, desc, subs in _CATEGORY_SEED:
-        existing = db.query(DBCategory).filter(DBCategory.category_id == cat_id).first()
-        if existing:
-            existing.category_name = name
-            existing.category_code = code
-            existing.description = desc
-            existing.subcategories = subs
-        else:
+        exists_by_id = db.query(DBCategory).filter(DBCategory.category_id == cat_id).first()
+        exists_by_name = db.query(DBCategory).filter(DBCategory.category_name == name).first()
+        if not exists_by_id and not exists_by_name:
             db.add(DBCategory(
                 category_id=cat_id, category_name=name, category_code=code,
                 description=desc, subcategories=subs,
             ))
-    # Delete categories that are no longer in seed list
-    db.query(DBCategory).filter(DBCategory.category_id.notin_(list(seed_map.keys()))).delete(synchronize_session=False)
     db.commit()
 
 
@@ -241,14 +234,12 @@ def _cat_to_response(c: DBCategory) -> CategoryResponse:
 
 @router.get("/categories", response_model=List[CategoryResponse])
 def list_categories(db: Session = Depends(get_db)) -> List[CategoryResponse]:
-    seed_categories(db)
     cats = db.query(DBCategory).order_by(DBCategory.category_id).all()
     return [_cat_to_response(c) for c in cats]
 
 
 @router.get("/category/{category_name}/subcategories", response_model=List[str])
 def get_subcategories(category_name: str, db: Session = Depends(get_db)) -> List[str]:
-    seed_categories(db)
     cat = db.query(DBCategory).filter(DBCategory.category_name == category_name).first()
     if not cat:
         raise HTTPException(status_code=404, detail=f"Category '{category_name}' not found.")
