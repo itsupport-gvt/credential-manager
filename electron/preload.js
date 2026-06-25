@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('credManager', {
   // Persist configuration (SharePoint credentials)
   saveConfig: (data) => ipcRenderer.invoke('save-config', data),
 
+  // Initialise MSAL with an Auth Client ID without persisting config to disk.
+  // Used by the setup window so the admin can sign in BEFORE we know the
+  // tenant ID (which we decode from the ID token after sign-in).
+  initMsal: (data) => ipcRenderer.invoke('init-msal', data),
+
   // Read currently saved configuration
   getConfig: () => ipcRenderer.invoke('get-config'),
 

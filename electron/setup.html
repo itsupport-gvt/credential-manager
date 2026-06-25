@@ -4,507 +4,472 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Credential Manager – Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Text:wght@400;500&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0&display=block" rel="stylesheet">
   <style>
-    /* ── Design tokens ─────────────────────────────────────────── */
+    /* Mirror the main app's design tokens (index.css, dark mode) so the
+       setup window feels like part of the same product. */
     :root {
-      --clr-header-bg:    #1f2937;
-      --clr-header-text:  #f9fafb;
-      --clr-header-sub:   #9ca3af;
-      --clr-body-bg:      #f8fafc;
-      --clr-card-bg:      #ffffff;
-      --clr-border:       #e2e8f0;
-      --clr-label:        #374151;
-      --clr-input-bg:     #ffffff;
-      --clr-input-border: #d1d5db;
-      --clr-input-focus:  #6366f1;
-      --clr-placeholder:  #9ca3af;
-      --clr-text:         #111827;
-      --clr-text-muted:   #6b7280;
-      --clr-accent:       #6366f1;
-      --clr-accent-hover: #4f46e5;
-      --clr-accent-text:  #ffffff;
-      --clr-success:      #059669;
-      --clr-error:        #dc2626;
-      --clr-error-bg:     #fef2f2;
-      --clr-error-border: #fecaca;
-      --radius-sm:        6px;
-      --radius-md:        10px;
-      --shadow-card:      0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+      --bg:         #131316;
+      --surface:    #1e1f22;
+      --surface-2:  #282a2e;
+      --surface-3:  #34363b;
+      --border:     #3a3d42;
+      --border-2:   #4e5158;
+      --primary:    #8ab4f8;
+      --primary-dk: #aecbfa;
+      --primary-bg: #1f2a3d;
+      --on-primary: #062e6f;
+      --text-1:     #e8eaed;
+      --text-2:     #bdc1c6;
+      --text-3:     #9aa0a6;
+      --success:    #81c995;
+      --success-bg: #1e3a26;
+      --danger:     #f28b82;
+      --danger-bg:  #3d1a17;
     }
 
-    /* ── Reset ──────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body { height: 100%; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Google Sans Text', 'Google Sans', system-ui, -apple-system, sans-serif;
       font-size: 14px;
-      background: var(--clr-body-bg);
-      color: var(--clr-text);
-      min-height: 100vh;
+      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text-1);
+      -webkit-font-smoothing: antialiased;
       display: flex;
-      flex-direction: column;
-    }
-
-    /* ── Header ─────────────────────────────────────────────────── */
-    .header {
-      background: var(--clr-header-bg);
-      color: var(--clr-header-text);
-      padding: 22px 28px 20px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      flex-shrink: 0;
-    }
-
-    .header-logo {
-      width: 42px; height: 42px;
-      flex-shrink: 0;
-      object-fit: contain;
-    }
-
-    .header-text h1 {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: .2px;
-      line-height: 1.2;
-    }
-
-    .header-text p {
-      font-size: 12px;
-      color: var(--clr-header-sub);
-      margin-top: 2px;
-    }
-
-    /* ── Body ────────────────────────────────────────────────────── */
-    .body {
-      flex: 1;
-      padding: 22px 24px 24px;
-      overflow-y: auto;
-    }
-
-    /* ── Form ────────────────────────────────────────────────────── */
-    .field + .field { margin-top: 14px; }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--clr-label);
-      margin-bottom: 5px;
-      letter-spacing: .2px;
-    }
-
-    label .required {
-      color: var(--clr-error);
-      margin-left: 2px;
-    }
-
-    .input-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      height: 38px;
-      padding: 0 12px;
-      border: 1.5px solid var(--clr-input-border);
-      border-radius: var(--radius-sm);
-      background: var(--clr-input-bg);
-      color: var(--clr-text);
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
-    }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus {
-      border-color: var(--clr-input-focus);
-      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
-    }
-
-    input::placeholder { color: var(--clr-placeholder); }
-
-    input.has-error {
-      border-color: var(--clr-error) !important;
-      box-shadow: 0 0 0 3px rgba(220,38,38,.12) !important;
-    }
-
-    /* password toggle */
-    .toggle-pw {
-      position: absolute;
-      right: 10px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--clr-text-muted);
-      padding: 4px;
-      display: flex;
-      align-items: center;
-    }
-    .toggle-pw:hover { color: var(--clr-text); }
-
-    input[type="password"] { padding-right: 36px; }
-
-    .field-hint {
-      font-size: 11px;
-      color: var(--clr-text-muted);
-      margin-top: 4px;
-    }
-
-    .field-error {
-      font-size: 11px;
-      color: var(--clr-error);
-      margin-top: 4px;
-      display: none;
-    }
-    .field-error.visible { display: block; }
-
-    /* ── Global error banner ─────────────────────────────────────── */
-    .error-banner {
-      display: none;
-      background: var(--clr-error-bg);
-      border: 1px solid var(--clr-error-border);
-      border-radius: var(--radius-sm);
-      padding: 10px 12px;
-      font-size: 12.5px;
-      color: var(--clr-error);
-      margin-bottom: 16px;
-    }
-    .error-banner.visible { display: block; }
-
-    /* ── Divider ─────────────────────────────────────────────────── */
-    .divider {
-      border: none;
-      border-top: 1px solid var(--clr-border);
-      margin: 20px 0 16px;
-    }
-
-    /* ── Actions ─────────────────────────────────────────────────── */
-    .actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-    }
-
-    .btn {
-      height: 38px;
-      padding: 0 20px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      border: 1.5px solid transparent;
-      transition: background .15s, border-color .15s, opacity .15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn-primary {
-      background: var(--clr-accent);
-      color: var(--clr-accent-text);
-      border-color: var(--clr-accent);
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: var(--clr-accent-hover);
-      border-color: var(--clr-accent-hover);
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--clr-label);
-      border-color: var(--clr-input-border);
-    }
-    .btn-secondary:hover:not(:disabled) {
-      background: var(--clr-border);
-    }
-
-    .btn:disabled {
-      opacity: .55;
-      cursor: not-allowed;
-    }
-
-    /* ── Loading overlay ─────────────────────────────────────────── */
-    .loading-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(15,15,26,.75);
-      backdrop-filter: blur(3px);
-      z-index: 100;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 14px;
-      color: #f1f5f9;
+      padding: 24px;
     }
-    .loading-overlay.visible { display: flex; }
 
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    /* Brand */
+    .brand { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+    .brand img { width: 44px; height: 44px; }
+    .brand .title {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 22px; font-weight: 400; color: var(--text-1);
+      letter-spacing: -.2px;
+    }
+    .brand .subtitle { font-size: 14px; color: var(--text-2); margin-top: 4px; }
+
+    /* Step indicator */
+    .step {
+      width: 100%;
+      display: flex; align-items: center; gap: 8px; justify-content: center;
+      font-size: 12px; color: var(--text-3);
+      user-select: none;
+    }
+    .step .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-2); }
+    .step .dot.active { background: var(--primary); }
+    .step .dot.done   { background: var(--success); }
+    .step .label { font-weight: 500; color: var(--text-2); }
+
+    /* Form */
+    .form { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 12px; font-weight: 500; color: var(--text-2);
+      letter-spacing: .1px;
+      user-select: none;
+    }
+    .field .hint { font-size: 12px; color: var(--text-3); line-height: 1.5; }
+    .field input {
+      width: 100%; height: 40px; padding: 0 14px;
+      background: var(--surface); color: var(--text-1);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      font-size: 14px; font-family: inherit;
+      outline: none;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    .field input:hover  { border-color: var(--text-2); }
+    .field input:focus  { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .field input::placeholder { color: var(--text-3); user-select: none; }
+    .field input.error  { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+    .field .field-err {
+      display: none;
+      font-size: 12px; color: var(--danger);
+    }
+    .field .field-err.visible { display: block; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; height: 44px;
+      border: none; border-radius: 22px;
+      font-family: 'Google Sans', sans-serif; font-size: 14px; font-weight: 500;
+      cursor: pointer;
+      transition: background-color .15s, color .15s, border-color .15s;
+      user-select: none;
+    }
+    .btn:disabled { opacity: .38; cursor: not-allowed; }
+
+    .btn-primary { background: var(--primary); color: var(--on-primary); }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dk); }
+
+    .btn-outlined {
+      background: transparent; color: var(--primary);
+      border: 1px solid var(--border-2);
+    }
+    .btn-outlined:hover:not(:disabled) { background: var(--primary-bg); }
+
+    /* Inline status / banners */
+    .banner {
+      display: none;
+      width: 100%;
+      padding: 12px 14px; border-radius: 8px;
+      font-size: 13px; line-height: 1.5;
+      text-align: left;
+    }
+    .banner.visible { display: flex; align-items: flex-start; gap: 10px; }
+    .banner .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .banner.error   { background: var(--danger-bg);  color: var(--danger);  }
+    .banner.success { background: var(--success-bg); color: var(--success); }
+    .banner.info    { background: var(--primary-bg); color: var(--primary); }
+
+    /* Signed-in chip */
+    .signed-in {
+      width: 100%;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface-2); border-radius: 8px;
+    }
+    .signed-in .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Google Sans', sans-serif; font-size: 14px; font-weight: 500;
+      flex-shrink: 0;
+    }
+    .signed-in .meta { flex: 1; min-width: 0; }
+    .signed-in .meta .name { font-size: 14px; font-weight: 500; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .signed-in .meta .email { font-size: 12px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .signed-in .check { color: var(--success); }
+
+    /* Footer */
+    .footer { font-size: 12px; color: var(--text-3); text-align: center; margin-top: 16px; }
+
+    /* Icons */
+    .material-symbols-outlined,
+    .icon {
+      font-family: 'Material Symbols Outlined';
+      font-style: normal; line-height: 1;
+      font-size: 20px;
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+      user-select: none;
+    }
+
+    /* Loading overlay */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0, 0, 0, .6);
+      backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      color: var(--text-1);
+    }
+    .overlay.visible { display: flex; }
     .spinner {
       width: 36px; height: 36px;
-      border: 3px solid rgba(255,255,255,.2);
-      border-top-color: #6366f1;
+      border: 3px solid var(--surface-2);
+      border-top-color: var(--primary);
       border-radius: 50%;
-      animation: spin .7s linear infinite;
+      animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-msg { font-family: 'Google Sans', sans-serif; font-size: 15px; font-weight: 500; }
+    .overlay-sub { font-size: 13px; color: var(--text-2); }
 
-    .loading-msg {
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .loading-sub {
-      font-size: 12px;
-      color: #94a3b8;
-    }
-
-    /* ── Success state ────────────────────────────────────────────── */
-    .success-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #0f0f1a;
-      z-index: 200;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: #f1f5f9;
-    }
-    .success-overlay.visible { display: flex; }
-
-    .check-icon {
-      width: 56px; height: 56px;
-      background: linear-gradient(135deg, #059669, #10b981);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 26px;
-    }
-    .success-overlay h2 { font-size: 18px; font-weight: 700; }
-    .success-overlay p  { font-size: 13px; color: #94a3b8; }
+    /* Microsoft logo button */
+    .ms-logo { width: 18px; height: 18px; flex-shrink: 0; }
   </style>
 </head>
 <body>
 
-  <!-- Header -->
-  <header class="header">
-    <img src="assets/cred_manager.svg" alt="Credential Manager" class="header-logo" />
-    <div class="header-text">
-      <h1>Credential Manager Setup</h1>
-      <p>Connect to your SharePoint credential store</p>
+  <div class="card">
+
+    <div class="brand">
+      <img src="assets/cred_manager.svg" alt="" />
+      <div>
+        <div class="title">Credential Manager</div>
+        <div class="subtitle">First-time setup</div>
+      </div>
     </div>
-  </header>
 
-  <!-- Form body -->
-  <div class="body">
-    <div id="errorBanner" class="error-banner" role="alert"></div>
+    <!-- Step indicator -->
+    <div class="step" id="stepIndicator">
+      <span class="dot active" id="dot1"></span>
+      <span class="label" id="stepLabel">Step 1 of 2 — Sign in</span>
+      <span class="dot" id="dot2"></span>
+    </div>
 
-    <!-- Step 1: sign in with Microsoft (always shown first; auto-fills below) -->
-    <div id="signedOutPanel">
-      <p style="font-size:13px;color:var(--clr-text-muted);line-height:1.5;margin-bottom:14px">
-        Sign in with your Microsoft 365 account. We'll auto-discover your
-        organisation's tenant ID and check SharePoint for a shared configuration.
-      </p>
-      <button type="button" id="btnSignIn" class="btn btn-primary" style="width:100%;justify-content:center;height:42px">
+    <!-- Banner (errors / info) -->
+    <div id="banner" class="banner" role="alert"></div>
+
+    <!-- ────────── STEP 1: Sign in ────────── -->
+    <div id="step1" class="form">
+      <div class="field">
+        <label for="authClientId">Microsoft 365 App Client ID</label>
+        <input
+          type="text"
+          id="authClientId"
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="field-err" id="err-authClientId">Client ID is required.</div>
+        <div class="hint">
+          From your Entra app registration (Overview &rarr; Application (client) ID).
+          Your IT admin can provide this if you don't have it.
+        </div>
+      </div>
+
+      <button type="button" id="btnSignIn" class="btn btn-primary">
+        <svg class="ms-logo" viewBox="0 0 21 21" fill="none">
+          <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+          <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+          <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+        </svg>
         Sign in with Microsoft
+      </button>
+
+      <div class="hint" style="text-align:center">
+        Your browser will open to sign in. Return here after.
+      </div>
+    </div>
+
+    <!-- ────────── STEP 2: Workbook URL ────────── -->
+    <div id="step2" class="form" style="display:none">
+
+      <div class="signed-in" id="signedInPanel">
+        <div class="avatar" id="avatar">?</div>
+        <div class="meta">
+          <div class="name"  id="signedInName">—</div>
+          <div class="email" id="signedInEmail">—</div>
+        </div>
+        <span class="icon check">check_circle</span>
+      </div>
+
+      <div class="field">
+        <label for="fileUrl">SharePoint Workbook URL</label>
+        <input
+          type="url"
+          id="fileUrl"
+          placeholder="https://company.sharepoint.com/:x:/s/..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="field-err" id="err-fileUrl">A valid SharePoint URL is required.</div>
+        <div class="hint">
+          Direct link to the Excel workbook. Your admin can share this — or it auto-fills
+          from the shared bootstrap if one exists.
+        </div>
+      </div>
+
+      <button type="button" id="btnSave" class="btn btn-primary">
+        <span class="icon" style="font-size:18px">check</span>
+        Save &amp; launch
       </button>
     </div>
 
-    <form id="setupForm" novalidate style="display:none">
-
-      <!-- Read-only banner showing who we're signed in as + auto-detected tenant -->
-      <div id="signedInBanner" style="
-        display:flex; align-items:center; gap:10px;
-        padding:10px 12px; margin-bottom:16px;
-        background:#f0fdf4; border:1px solid #bbf7d0; border-radius:var(--radius-sm);
-        font-size:12.5px; color:#15803d;
-      ">
-        <span style="font-weight:700">✓</span>
-        <span id="signedInText">Signed in</span>
-      </div>
-
-      <!-- File URL — the only field the admin still needs to provide. -->
-      <div class="field">
-        <label for="fileUrl">SharePoint Workbook URL <span class="required">*</span></label>
-        <div class="input-wrap">
-          <input
-            type="text"
-            id="fileUrl"
-            name="fileUrl"
-            placeholder="https://company.sharepoint.com/:x:/s/..."
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-        <div class="field-error" id="err-fileUrl">A valid SharePoint URL is required.</div>
-        <div class="field-hint">
-          Direct link to the Excel workbook. After saving, this is uploaded to
-          a shared bootstrap so other teammates' machines auto-configure on first sign-in.
-        </div>
-      </div>
-
-      <hr class="divider" />
-
-      <div class="actions">
-        <button type="submit" id="btnSave" class="btn btn-primary">
-          Save &amp; Launch
-        </button>
-      </div>
-
-    </form>
-  </div><!-- /.body -->
-
-  <!-- Loading overlay -->
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="spinner"></div>
-    <div class="loading-msg">Connecting to SharePoint&hellip;</div>
-    <div class="loading-sub">Starting the backend service, please wait.</div>
+    <div class="footer">Gravity Business Partners</div>
   </div>
 
-  <!-- Success overlay -->
-  <div class="success-overlay" id="successOverlay">
-    <div class="check-icon">&#10003;</div>
-    <h2>Configuration saved!</h2>
-    <p>Launching Credential Manager&hellip;</p>
+  <!-- Loading overlay -->
+  <div class="overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="overlay-msg" id="overlayMsg">Working…</div>
+    <div class="overlay-sub" id="overlaySub">Please wait.</div>
   </div>
 
   <script>
     const $ = (id) => document.getElementById(id)
 
-    let _signedInUser = null
-    let _tenantId     = ''
+    let _user     = null
+    let _tenantId = ''
 
-    function showFieldError (field, msg) {
-      $(field).classList.add('has-error')
-      $('err-' + field).textContent = msg
-      $('err-' + field).classList.add('visible')
-    }
-
-    function clearFieldError (field) {
-      $(field).classList.remove('has-error')
-      $('err-' + field).classList.remove('visible')
-    }
-
-    function showBanner (msg) {
-      $('errorBanner').textContent = msg
-      $('errorBanner').classList.add('visible')
+    // ───────── helpers ─────────
+    function showBanner (kind, msg, icon) {
+      const b = $('banner')
+      b.className = 'banner visible ' + kind
+      b.innerHTML = `<span class="icon">${icon || (kind === 'error' ? 'error' : kind === 'success' ? 'check_circle' : 'info')}</span><span>${msg}</span>`
     }
     function clearBanner () {
-      $('errorBanner').classList.remove('visible')
-      $('errorBanner').textContent = ''
-      $('errorBanner').style = ''
+      $('banner').className = 'banner'
+      $('banner').innerHTML = ''
+    }
+
+    function showFieldError (id, msg) {
+      $(id).classList.add('error')
+      const err = $('err-' + id)
+      err.textContent = msg
+      err.classList.add('visible')
+    }
+    function clearFieldError (id) {
+      $(id).classList.remove('error')
+      $('err-' + id).classList.remove('visible')
+    }
+
+    function setOverlay (visible, msg, sub) {
+      if (msg) $('overlayMsg').textContent = msg
+      if (sub) $('overlaySub').textContent = sub
+      $('loadingOverlay').classList.toggle('visible', visible)
+    }
+
+    function setStep (n) {
+      $('stepLabel').textContent = n === 1 ? 'Step 1 of 2 — Sign in' : 'Step 2 of 2 — Workbook'
+      $('dot1').className = 'dot ' + (n === 1 ? 'active' : 'done')
+      $('dot2').className = 'dot ' + (n === 2 ? 'active' : '')
+      $('step1').style.display = n === 1 ? '' : 'none'
+      $('step2').style.display = n === 2 ? '' : 'none'
     }
 
     function isSharePointUrl (val) {
       try {
         const u = new URL(val.trim())
         return (u.protocol === 'https:') && u.hostname.includes('sharepoint.com')
-      } catch (_) { return false }
+      } catch { return false }
     }
 
-    function setLoading (on) {
-      $('btnSave').disabled  = on
-      $('btnSignIn').disabled = on
-      $('loadingOverlay').classList.toggle('visible', on)
+    function initials (nameOrEmail) {
+      return (nameOrEmail || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     }
 
-    // ── After sign-in: show the form, populate signed-in banner, try bootstrap
+    // ───────── pre-fill from any existing local state ─────────
+    (async function prefill () {
+      if (!window.credManager) return
+      try {
+        const cfg = await window.credManager.getConfig()
+        if (cfg) {
+          if (cfg.authClientId) $('authClientId').value = cfg.authClientId
+          if (cfg.fileUrl)      $('fileUrl').value      = cfg.fileUrl
+        }
+        // If MSAL was already initialised this launch and there's a cached
+        // session, jump straight to step 2.
+        const user = await window.credManager.getMsUser()
+        if (user) await onSignedIn(user)
+      } catch { /* ignore */ }
+    })()
+
+    // ───────── step 1: sign in ─────────
+    $('btnSignIn').addEventListener('click', async () => {
+      clearBanner()
+      clearFieldError('authClientId')
+
+      const cid = $('authClientId').value.trim()
+      if (!cid) { showFieldError('authClientId', 'Client ID is required.'); return }
+      // Loose GUID check
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid)) {
+        showFieldError('authClientId', 'Must be a valid GUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).')
+        return
+      }
+
+      if (!window.credManager) { showBanner('error', 'Electron bridge not available.'); return }
+
+      setOverlay(true, 'Opening sign-in…', 'Continue in your browser.')
+
+      try {
+        // Initialise MSAL with the entered client ID (no config persisted yet)
+        const init = await window.credManager.initMsal({ authClientId: cid })
+        if (!init.ok) {
+          setOverlay(false)
+          showBanner('error', init.error || 'Failed to initialise sign-in.')
+          return
+        }
+
+        // Trigger interactive sign-in
+        const result = await window.credManager.msLogin()
+        if (!result || !result.ok) {
+          setOverlay(false)
+          showBanner('error', (result && result.error) ? result.error : 'Sign-in was cancelled.')
+          return
+        }
+
+        await onSignedIn(result.user)
+        setOverlay(false)
+      } catch (err) {
+        setOverlay(false)
+        showBanner('error', 'Sign-in failed: ' + err.message)
+      }
+    })
+
+    // ───────── after sign-in: populate, try bootstrap, go to step 2 ─────────
     async function onSignedIn (user) {
-      _signedInUser = user
-      _tenantId     = (await window.credManager.getMsTenantId()) || ''
+      _user = user
+      _tenantId = (await window.credManager.getMsTenantId()) || ''
 
-      $('signedOutPanel').style.display = 'none'
-      $('setupForm').style.display = ''
-      $('signedInText').textContent =
-        `Signed in as ${user.name || user.email} · Tenant ${_tenantId.slice(0,8) || '?'}…`
+      $('avatar').textContent       = initials(user.name || user.email)
+      $('signedInName').textContent  = user.name || user.email
+      $('signedInEmail').textContent = user.email || ''
 
-      // Try to fetch existing bootstrap so admins editing settings on the
-      // shared config see the current values.
+      setStep(2)
+
+      // Try to fetch existing bootstrap so subsequent users auto-configure
       try {
         const bs = await window.credManager.fetchBootstrap()
         if (bs && bs.fileUrl && !$('fileUrl').value) {
           $('fileUrl').value = bs.fileUrl
-          const banner = $('errorBanner')
-          banner.textContent = 'Loaded existing configuration from SharePoint ✓'
-          banner.style.background  = '#f0fdf4'
-          banner.style.borderColor = '#bbf7d0'
-          banner.style.color       = '#15803d'
-          banner.classList.add('visible')
+          showBanner('success', 'Loaded existing workbook URL from SharePoint. Click <strong>Save &amp; launch</strong> to continue.')
+        } else {
+          clearBanner()
         }
-      } catch (_) { /* best-effort */ }
+      } catch { /* best-effort */ }
     }
 
-    // ── Pre-fill from existing local config if re-opening settings
-    async function prefillFromLocalConfig () {
-      if (!window.credManager) return
-      try {
-        const cfg = await window.credManager.getConfig()
-        if (cfg && cfg.fileUrl) $('fileUrl').value = cfg.fileUrl
-        // If we already have an MSAL session cached, jump straight to the form.
-        const user = await window.credManager.getMsUser()
-        if (user) onSignedIn(user)
-      } catch (_) { /* ignore */ }
-    }
-    prefillFromLocalConfig()
-
-    // ── Sign in with Microsoft (kicks off MSAL interactive flow in Electron main)
-    $('btnSignIn').addEventListener('click', async () => {
-      clearBanner()
-      if (!window.credManager) { showBanner('Electron API not available.'); return }
-      setLoading(true)
-      try {
-        const result = await window.credManager.msLogin()
-        if (!result || !result.ok) {
-          showBanner(result && result.error ? result.error : 'Sign-in cancelled')
-          setLoading(false)
-          return
-        }
-        await onSignedIn(result.user)
-      } catch (err) {
-        showBanner('Sign-in failed: ' + err.message)
-      } finally {
-        setLoading(false)
-      }
-    })
-
-    // ── Submit / Save & Launch
-    $('setupForm').addEventListener('submit', async (e) => {
-      e.preventDefault()
+    // ───────── step 2: save & launch ─────────
+    $('btnSave').addEventListener('click', async () => {
       clearBanner()
       clearFieldError('fileUrl')
 
       const fu = $('fileUrl').value.trim()
-      if (!fu)                       { showFieldError('fileUrl', 'SharePoint workbook URL is required.'); return }
-      if (!isSharePointUrl(fu))      { showFieldError('fileUrl', 'Must be a valid https://...sharepoint.com/... URL.'); return }
-      if (!_signedInUser)            { showBanner('Please sign in with Microsoft first.'); return }
-      if (!window.credManager)       { showBanner('Electron API not available.'); return }
+      if (!fu)                  { showFieldError('fileUrl', 'Workbook URL is required.'); return }
+      if (!isSharePointUrl(fu)) { showFieldError('fileUrl', 'Must be a valid https://...sharepoint.com/... URL.'); return }
+      if (!_user)               { showBanner('error', 'Sign in first.'); setStep(1); return }
+      if (!window.credManager)  { showBanner('error', 'Electron bridge not available.'); return }
+
+      setOverlay(true, 'Starting backend…', 'Connecting to SharePoint.')
 
       const data = {
         tenantId:     _tenantId,
-        authClientId: '',    // main.js falls back to its baked-in default
-        clientId:     '',    // legacy field — kept blank in delegated-only mode
-        clientSecret: '',    // legacy field — kept blank in delegated-only mode
+        authClientId: $('authClientId').value.trim(),
+        clientId:     '',  // legacy field — not used in delegated-only mode
+        clientSecret: '',  // legacy field — not used in delegated-only mode
         fileUrl:      fu,
       }
 
-      setLoading(true)
       try {
         const result = await window.credManager.setupComplete(data)
         if (result && result.ok === false) {
-          setLoading(false)
-          showBanner('Backend failed to start: ' + (result.error || 'Unknown error'))
+          setOverlay(false)
+          showBanner('error', 'Backend failed to start: ' + (result.error || 'Unknown error'))
           return
         }
-        $('loadingOverlay').classList.remove('visible')
-        $('successOverlay').classList.add('visible')
+        // Setup window closes itself via setupComplete → main.js
+        setOverlay(true, 'Launching Credential Manager…', 'Almost there.')
       } catch (err) {
-        setLoading(false)
-        showBanner('Unexpected error: ' + err.message)
+        setOverlay(false)
+        showBanner('error', 'Unexpected error: ' + err.message)
       }
     })
   </script>

@@ -654,11 +654,16 @@ function createSetupWindow () {
 
   setupWindow = new BrowserWindow({
     width:     520,
-    height:    560,
+    height:    640,
     center:    true,
     resizable: false,
-    frame:     true,
     title:     'Credential Manager – Setup',
+    titleBarStyle:    'hidden',
+    titleBarOverlay:  {
+      color:       '#131316',
+      symbolColor: '#e8eaed',
+      height:      36,
+    },
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -743,6 +748,18 @@ ipcMain.handle('save-config', (_event, data) => {
   writeEnvFile(data, currentPort)
   initMsal(data)
   return { ok: true }
+})
+
+// Initialise MSAL on-the-fly without writing config to disk. Used by the
+// setup window: the admin enters their Auth Client ID, we wire up MSAL,
+// they click "Sign in with Microsoft", and we discover the tenant from
+// the resulting ID token.
+ipcMain.handle('init-msal', (_event, { authClientId }) => {
+  if (!authClientId || typeof authClientId !== 'string') {
+    return { ok: false, error: 'Auth Client ID is required' }
+  }
+  initMsal({ authClientId: authClientId.trim(), tenantId: '' })
+  return { ok: _msalApp !== null }
 })
 
 // --- Microsoft auth IPC ---
