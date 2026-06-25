@@ -315,7 +315,7 @@ async function msAcquireGraphToken ({ allowInteractive = true } = {}) {
 // Bootstrap (shared SharePoint config) helpers
 // ---------------------------------------------------------------------------
 
-const BOOTSTRAP_PATH = '/sites/root/drive/root:/Credential Manager/bootstrap.json'
+const BOOTSTRAP_PATH = '/sites/root/drive/root:/Credential%20Manager/bootstrap.json'
 
 async function fetchBootstrap () {
   const token = await msAcquireGraphToken()
