@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { AutoInput } from '../components/AutoInput'
 import { AuthorizedUsersEditor } from '../components/AuthorizedUsersEditor'
+import { SearchableSelect } from '../components/SearchableSelect'
 import type { Tenant, Category, AuthorizedUser, MfaMethod, ReferenceData } from '../lib/types'
 
 const DEFAULT_STATUSES       = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
@@ -129,7 +130,23 @@ export default function NewCredentialPage() {
   const [errors, setErrors]         = useState<string[]>([])
   const [mfaMethods, setMfaMethods] = useState<MfaMethod[]>([])
   const [authUsers, setAuthUsers]   = useState<AuthorizedUser[]>([])
-  const [suggestions, setSuggestions] = useState<{ service_names: string[]; service_urls: string[]; usernames: string[] }>({ service_names: [], service_urls: [], usernames: [] })
+  const [suggestions, setSuggestions] = useState<{
+    service_names: string[]; service_urls: string[]; usernames: string[]
+    recovery_emails: string[]; recovery_phones: string[]; backup_codes_locations: string[]
+    account_display_names: string[]; license_types: string[]; plan_tiers: string[]
+    billing_emails: string[]; payment_references: string[]
+    server_hostnames: string[]; database_names: string[]; client_ids: string[]
+    tenant_id_apps: string[]; subscription_id_azures: string[]
+    managed_by: string[]; managed_by_emails: string[]; created_by: string[]; tags: string[]
+  }>({
+    service_names: [], service_urls: [], usernames: [],
+    recovery_emails: [], recovery_phones: [], backup_codes_locations: [],
+    account_display_names: [], license_types: [], plan_tiers: [],
+    billing_emails: [], payment_references: [],
+    server_hostnames: [], database_names: [], client_ids: [],
+    tenant_id_apps: [], subscription_id_azures: [],
+    managed_by: [], managed_by_emails: [], created_by: [], tags: [],
+  })
   const [refData, setRefData]       = useState<ReferenceData>({})
 
   useEffect(() => {
@@ -238,16 +255,27 @@ export default function NewCredentialPage() {
         <Sec title="1. Core Identity">
           <FF label="Credential Type" required><SI name="credential_type" value={form.credential_type} onChange={handleChange} options={CRED_TYPES} /></FF>
           <FF label="Tenant" required>
-            <select name="tenant_code" value={form.tenant_code} onChange={handleChange} className="md-select">
-              <option value="">Select tenant…</option>
-              {tenants.map(t => <option key={t.tenant_code} value={t.tenant_code}>{t.tenant_name} ({t.tenant_code})</option>)}
-            </select>
+            <SearchableSelect
+              value={form.tenant_code}
+              onChange={code => {
+                const t = tenants.find(x => x.tenant_code === code)
+                setForm(f => ({ ...f, tenant_code: code, tenant_name: t?.tenant_name ?? '' }))
+              }}
+              options={tenants.map(t => ({ value: t.tenant_code, label: t.tenant_name, sublabel: t.tenant_code }))}
+              placeholder="Search tenants…"
+              emptyLabel="No tenants found"
+              required
+            />
           </FF>
           <FF label="Category" required>
-            <select name="category" value={form.category} onChange={handleChange} className="md-select">
-              <option value="">Select category…</option>
-              {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
-            </select>
+            <SearchableSelect
+              value={form.category}
+              onChange={cat => setForm(f => ({ ...f, category: cat, subcategory: '' }))}
+              options={categories.map(c => ({ value: c.category_name, label: c.category_name, sublabel: c.category_code }))}
+              placeholder="Search categories…"
+              emptyLabel="No categories found"
+              required
+            />
           </FF>
           <FF label="Subcategory">
             {subcategories.length > 0 ? (
@@ -289,9 +317,9 @@ export default function NewCredentialPage() {
             <AutoInput name="username_email" value={form.username_email} onChange={handleChange} suggestions={suggestions.usernames} required />
           </FF>
           <FF label="Password"><PI name="password" value={form.password} onChange={handleChange} /></FF>
-          <FF label="Recovery Email"><TI name="recovery_email" value={form.recovery_email} onChange={handleChange} type="email" /></FF>
-          <FF label="Recovery Phone"><TI name="recovery_phone" value={form.recovery_phone} onChange={handleChange} type="tel" /></FF>
-          <FF label="Backup Codes Location"><TI name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} /></FF>
+          <FF label="Recovery Email"><AutoInput name="recovery_email" value={form.recovery_email} onChange={handleChange} suggestions={suggestions.recovery_emails} type="email" /></FF>
+          <FF label="Recovery Phone"><AutoInput name="recovery_phone" value={form.recovery_phone} onChange={handleChange} suggestions={suggestions.recovery_phones} type="tel" /></FF>
+          <FF label="Backup Codes Location"><AutoInput name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} suggestions={suggestions.backup_codes_locations} /></FF>
           <div style={{ gridColumn: '1 / -1' }}>
             <FF label="Security Notes"><textarea name="security_notes" value={form.security_notes} onChange={handleChange} rows={2} className="md-textarea" /></FF>
           </div>
@@ -356,17 +384,17 @@ export default function NewCredentialPage() {
         </div>
 
         <Sec title="5. Account Details" defaultOpen={false}>
-          <FF label="Account Display Name"><TI name="account_display_name" value={form.account_display_name} onChange={handleChange} /></FF>
+          <FF label="Account Display Name"><AutoInput name="account_display_name" value={form.account_display_name} onChange={handleChange} suggestions={suggestions.account_display_names} /></FF>
           <FF label="Account ID"><TI name="account_id" value={form.account_id} onChange={handleChange} /></FF>
-          <FF label="License Type"><TI name="license_type" value={form.license_type} onChange={handleChange} /></FF>
-          <FF label="Plan Tier"><TI name="plan_tier" value={form.plan_tier} onChange={handleChange} /></FF>
+          <FF label="License Type"><AutoInput name="license_type" value={form.license_type} onChange={handleChange} suggestions={suggestions.license_types} /></FF>
+          <FF label="Plan Tier"><AutoInput name="plan_tier" value={form.plan_tier} onChange={handleChange} suggestions={suggestions.plan_tiers} /></FF>
           <FF label="Subscription Start"><TI name="subscription_start" value={form.subscription_start} onChange={handleChange} type="date" /></FF>
           <FF label="Subscription End"><TI name="subscription_end" value={form.subscription_end} onChange={handleChange} type="date" /></FF>
           <FF label="Auto Renewal"><SI name="auto_renewal" value={form.auto_renewal} onChange={handleChange} options={AUTO_RENEWALS} /></FF>
           <FF label="Monthly Cost"><TI name="monthly_cost" value={form.monthly_cost} onChange={handleChange} type="number" placeholder="0.00" /></FF>
           <FF label="Billing Cycle"><SI name="billing_cycle" value={form.billing_cycle} onChange={handleChange} options={BILLING_CYCLES} placeholder="Select…" /></FF>
-          <FF label="Billing Email"><TI name="billing_email" value={form.billing_email} onChange={handleChange} type="email" /></FF>
-          <FF label="Payment Reference"><TI name="payment_reference" value={form.payment_reference} onChange={handleChange} /></FF>
+          <FF label="Billing Email"><AutoInput name="billing_email" value={form.billing_email} onChange={handleChange} suggestions={suggestions.billing_emails} type="email" /></FF>
+          <FF label="Payment Reference"><AutoInput name="payment_reference" value={form.payment_reference} onChange={handleChange} suggestions={suggestions.payment_references} /></FF>
         </Sec>
 
         <Sec title="6. Technical / API" defaultOpen={false}>
@@ -374,22 +402,22 @@ export default function NewCredentialPage() {
           <FF label="Linked Credential ID"><TI name="linked_credential_id" value={form.linked_credential_id} onChange={handleChange} /></FF>
           <FF label="API Key"><PI name="api_key" value={form.api_key} onChange={handleChange} /></FF>
           <FF label="API Secret"><PI name="api_secret" value={form.api_secret} onChange={handleChange} /></FF>
-          <FF label="Client ID"><TI name="client_id" value={form.client_id} onChange={handleChange} /></FF>
+          <FF label="Client ID"><AutoInput name="client_id" value={form.client_id} onChange={handleChange} suggestions={suggestions.client_ids} /></FF>
           <FF label="Client Secret"><PI name="client_secret" value={form.client_secret} onChange={handleChange} /></FF>
-          <FF label="Tenant ID (App)"><TI name="tenant_id_app" value={form.tenant_id_app} onChange={handleChange} /></FF>
-          <FF label="Azure Subscription ID"><TI name="subscription_id_azure" value={form.subscription_id_azure} onChange={handleChange} /></FF>
-          <FF label="Server Hostname"><TI name="server_hostname" value={form.server_hostname} onChange={handleChange} /></FF>
+          <FF label="Tenant ID (App)"><AutoInput name="tenant_id_app" value={form.tenant_id_app} onChange={handleChange} suggestions={suggestions.tenant_id_apps} /></FF>
+          <FF label="Azure Subscription ID"><AutoInput name="subscription_id_azure" value={form.subscription_id_azure} onChange={handleChange} suggestions={suggestions.subscription_id_azures} /></FF>
+          <FF label="Server Hostname"><AutoInput name="server_hostname" value={form.server_hostname} onChange={handleChange} suggestions={suggestions.server_hostnames} /></FF>
           <FF label="Port"><TI name="port" value={form.port} onChange={handleChange} type="number" /></FF>
           <FF label="Protocol"><SI name="protocol" value={form.protocol} onChange={handleChange} options={PROTOCOLS} placeholder="Select…" /></FF>
-          <FF label="Database Name"><TI name="database_name" value={form.database_name} onChange={handleChange} /></FF>
+          <FF label="Database Name"><AutoInput name="database_name" value={form.database_name} onChange={handleChange} suggestions={suggestions.database_names} /></FF>
         </Sec>
 
         <Sec title="7. Ownership & Tracking" defaultOpen={false}>
-          <FF label="Managed By"><TI name="managed_by" value={form.managed_by} onChange={handleChange} /></FF>
-          <FF label="Managed By Email"><TI name="managed_by_email" value={form.managed_by_email} onChange={handleChange} type="email" /></FF>
-          <FF label="Created By"><TI name="created_by" value={form.created_by} onChange={handleChange} /></FF>
+          <FF label="Managed By"><AutoInput name="managed_by" value={form.managed_by} onChange={handleChange} suggestions={suggestions.managed_by} /></FF>
+          <FF label="Managed By Email"><AutoInput name="managed_by_email" value={form.managed_by_email} onChange={handleChange} suggestions={suggestions.managed_by_emails} type="email" /></FF>
+          <FF label="Created By"><AutoInput name="created_by" value={form.created_by} onChange={handleChange} suggestions={suggestions.created_by} /></FF>
           <FF label="Created Date"><TI name="created_date" value={form.created_date} onChange={handleChange} type="date" /></FF>
-          <FF label="Tags"><TI name="tags" value={form.tags} onChange={handleChange} placeholder="comma, separated, tags" /></FF>
+          <FF label="Tags"><AutoInput name="tags" value={form.tags} onChange={handleChange} suggestions={suggestions.tags} placeholder="comma, separated, tags" /></FF>
           <div style={{ gridColumn: '1 / -1' }}>
             <FF label="Notes"><textarea name="notes" value={form.notes} onChange={handleChange} rows={3} className="md-textarea" /></FF>
           </div>

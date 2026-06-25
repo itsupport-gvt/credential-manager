@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { ChangeLogItem, Tenant } from '../lib/types'
+import { SearchableSelect } from '../components/SearchableSelect'
 
 const PAGE_SIZE = 50
 const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'ARCHIVE', 'REVEAL', 'ACCESS']
@@ -86,10 +87,16 @@ export default function ChangeLogPage() {
           <option value="">All actions</option>
           {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <select value={filterTenant} onChange={e => { setFilterTenant(e.target.value); setPage(1) }} className="md-select" style={{ width: 'auto', minWidth: 140 }}>
-          <option value="">All tenants</option>
-          {tenants.map(t => <option key={t.tenant_code} value={t.tenant_code}>{t.tenant_name}</option>)}
-        </select>
+        <div style={{ width: 180 }}>
+          <SearchableSelect
+            value={filterTenant}
+            onChange={v => { setFilterTenant(v); setPage(1) }}
+            options={tenants.map(t => ({ value: t.tenant_code, label: t.tenant_name, sublabel: t.tenant_code }))}
+            placeholder="All tenants"
+            allowClear
+            emptyLabel="No tenants"
+          />
+        </div>
       </div>
 
       {error && (

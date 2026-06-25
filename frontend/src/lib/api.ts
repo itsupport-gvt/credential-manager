@@ -10,6 +10,7 @@ import type {
   StaffUser,
   RefDataItem,
   ReferenceData,
+  Suggestions,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -145,7 +146,7 @@ export const api = {
     req<{ success: boolean }>(`/api/credential/archive/${id}`, { method: 'POST' }),
 
   getSuggestions: () =>
-    req<{ service_names: string[]; service_urls: string[]; usernames: string[] }>('/api/suggestions'),
+    req<Suggestions>('/api/suggestions'),
 
   revealField: (id: string, field: string) =>
     req<{ value: string }>(`/api/credential/${id}/reveal/${field}`),

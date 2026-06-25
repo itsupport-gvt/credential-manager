@@ -184,3 +184,28 @@ export interface RefDataItem {
 }
 
 export type ReferenceData = Record<string, string[]>
+
+/** Autocomplete suggestions for the new/edit credential forms — sourced from
+ *  previously-entered values across all credentials. */
+export interface Suggestions {
+  service_names:           string[]
+  service_urls:            string[]
+  usernames:               string[]
+  recovery_emails:         string[]
+  recovery_phones:         string[]
+  backup_codes_locations:  string[]
+  account_display_names:   string[]
+  license_types:           string[]
+  plan_tiers:              string[]
+  billing_emails:          string[]
+  payment_references:      string[]
+  server_hostnames:        string[]
+  database_names:          string[]
+  client_ids:              string[]
+  tenant_id_apps:          string[]
+  subscription_id_azures:  string[]
+  managed_by:              string[]
+  managed_by_emails:       string[]
+  created_by:              string[]
+  tags:                    string[]
+}

@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import type { Credential, CredentialsPage as CPData, Tenant, Category } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
+import { SearchableSelect } from '../components/SearchableSelect'
 
 const PAGE_SIZE = 50
 const STATUSES = ['Active', 'Inactive', 'Expired', 'Compromised', 'Archived']
@@ -115,14 +116,26 @@ export default function CredentialsPage() {
             style={{ paddingLeft: 42 }}
           />
         </div>
-        <select value={filterTenant} onChange={e => { setFilterTenant(e.target.value); setPage(1) }} className="md-select" style={{ width: 'auto', minWidth: 140 }}>
-          <option value="">All tenants</option>
-          {tenants.map(t => <option key={t.tenant_code} value={t.tenant_code}>{t.tenant_name}</option>)}
-        </select>
-        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1) }} className="md-select" style={{ width: 'auto', minWidth: 140 }}>
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
-        </select>
+        <div style={{ width: 180 }}>
+          <SearchableSelect
+            value={filterTenant}
+            onChange={v => { setFilterTenant(v); setPage(1) }}
+            options={tenants.map(t => ({ value: t.tenant_code, label: t.tenant_name, sublabel: t.tenant_code }))}
+            placeholder="All tenants"
+            allowClear
+            emptyLabel="No tenants"
+          />
+        </div>
+        <div style={{ width: 180 }}>
+          <SearchableSelect
+            value={filterCategory}
+            onChange={v => { setFilterCategory(v); setPage(1) }}
+            options={categories.map(c => ({ value: c.category_name, label: c.category_name, sublabel: c.category_code }))}
+            placeholder="All categories"
+            allowClear
+            emptyLabel="No categories"
+          />
+        </div>
         <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }} className="md-select" style={{ width: 'auto', minWidth: 130 }}>
           <option value="">All statuses</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}

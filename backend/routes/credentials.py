@@ -396,17 +396,66 @@ def get_suggestions(
     db: Session = Depends(get_db),
     user: UserInfo = Depends(require_viewer),
 ) -> dict:
-    """Return unique non-empty field values for frontend autocomplete."""
+    """Return unique non-empty field values for frontend autocomplete.
+
+    These power the AutoInput component in the new/edit credential forms —
+    surfacing previously-entered values as Tab-completable suggestions so
+    users don't retype emails, hostnames, manager names, tags, etc.
+    """
     from sqlalchemy import distinct
+
     def _unique(col):
         return sorted({
             r[0] for r in db.query(distinct(col)).filter(col != "").all()
             if r[0]
         })
+
+    # Tags are stored comma-separated — split, dedupe, sort
+    def _unique_tags():
+        seen: set[str] = set()
+        for (raw,) in db.query(distinct(DBCredential.tags)).filter(DBCredential.tags != "").all():
+            if not raw:
+                continue
+            for t in str(raw).split(","):
+                t = t.strip()
+                if t:
+                    seen.add(t)
+                    if len(seen) > 500:
+                        break
+        return sorted(seen)
+
     return {
-        "service_names": _unique(DBCredential.service_name),
-        "service_urls":  _unique(DBCredential.service_url),
-        "usernames":     _unique(DBCredential.username_email),
+        # Originals
+        "service_names":           _unique(DBCredential.service_name),
+        "service_urls":             _unique(DBCredential.service_url),
+        "usernames":                _unique(DBCredential.username_email),
+
+        # Auth / recovery
+        "recovery_emails":          _unique(DBCredential.recovery_email),
+        "recovery_phones":          _unique(DBCredential.recovery_phone),
+        "backup_codes_locations":   _unique(DBCredential.backup_codes_location),
+
+        # Account / billing
+        "account_display_names":    _unique(DBCredential.account_display_name),
+        "license_types":            _unique(DBCredential.license_type),
+        "plan_tiers":               _unique(DBCredential.plan_tier),
+        "billing_emails":           _unique(DBCredential.billing_email),
+        "payment_references":       _unique(DBCredential.payment_reference),
+
+        # Technical / API
+        "server_hostnames":         _unique(DBCredential.server_hostname),
+        "database_names":           _unique(DBCredential.database_name),
+        "client_ids":               _unique(DBCredential.client_id),
+        "tenant_id_apps":           _unique(DBCredential.tenant_id_app),
+        "subscription_id_azures":   _unique(DBCredential.subscription_id_azure),
+
+        # Ownership
+        "managed_by":               _unique(DBCredential.managed_by),
+        "managed_by_emails":        _unique(DBCredential.managed_by_email),
+        "created_by":               _unique(DBCredential.created_by),
+
+        # Tags (split + deduped across all credentials)
+        "tags":                     _unique_tags(),
     }
 
 
