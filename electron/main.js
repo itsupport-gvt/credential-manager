@@ -171,6 +171,10 @@ function initMsal (config) {
 const _MSAL_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 // Scopes for Microsoft Graph delegated calls (SharePoint workbook + bootstrap)
 const _GRAPH_SCOPES = ['User.Read', 'Files.ReadWrite.All', 'Sites.ReadWrite.All']
+// Combined set requested during interactive sign-in so the user consents to
+// EVERYTHING the app needs in one prompt. Later silent acquires use whichever
+// subset they need (ID token vs Graph access token).
+const _ALL_SCOPES = [..._MSAL_SCOPES, ..._GRAPH_SCOPES]
 
 async function msAcquireSilent () {
   if (!_msalApp) return null
@@ -194,8 +198,10 @@ async function msAcquireSilent () {
 async function msAcquireInteractive () {
   if (!_msalApp) throw new Error('Auth not configured')
 
+  // Request login + Graph scopes together so the user consents once and we
+  // can silently acquire Graph tokens later without re-prompting.
   const result = await _msalApp.acquireTokenInteractive({
-    scopes: _MSAL_SCOPES,
+    scopes: _ALL_SCOPES,
     redirectUri: 'http://localhost',
     openBrowser: async (url) => { await shell.openExternal(url) },
     successTemplate: `
@@ -239,17 +245,49 @@ function _decodeTenantIdFromIdToken () {
 }
 
 // Acquire a Microsoft Graph access token (separate from the ID token).
-async function msAcquireGraphToken () {
+//
+// First tries silent acquire (uses cached refresh token, no user interaction).
+// If that fails — typically because the user signed in before Graph scopes
+// were requested up-front, or consent was revoked — falls back to an
+// interactive prompt for just the Graph scopes.
+async function msAcquireGraphToken ({ allowInteractive = true } = {}) {
   if (!_msalApp) return null
+
+  // Step 1: silent acquire from cache
   try {
     const accounts = await _msalApp.getTokenCache().getAllAccounts()
-    if (!accounts || accounts.length === 0) return null
-    if (!_msalAccount && accounts.length > 1) return null
-    const account = _msalAccount || accounts[0]
-    const result  = await _msalApp.acquireTokenSilent({ scopes: _GRAPH_SCOPES, account })
+    if (accounts && accounts.length > 0 && (_msalAccount || accounts.length === 1)) {
+      const account = _msalAccount || accounts[0]
+      const result  = await _msalApp.acquireTokenSilent({ scopes: _GRAPH_SCOPES, account })
+      if (result && result.accessToken) return result.accessToken
+    }
+  } catch (e) {
+    log('[msal] silent graph token acquire failed: ' + e.message)
+  }
+
+  if (!allowInteractive) return null
+
+  // Step 2: interactive consent for Graph scopes (one-time for legacy users)
+  log('[msal] falling back to interactive consent for Graph scopes')
+  try {
+    const result = await _msalApp.acquireTokenInteractive({
+      scopes: _GRAPH_SCOPES,
+      redirectUri: 'http://localhost',
+      openBrowser: async (url) => { await shell.openExternal(url) },
+      successTemplate: `
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px">
+          <h2 style="color:#188038">SharePoint access granted</h2>
+          <p>You can close this tab and return to Credential Manager.</p>
+        </body></html>`,
+      errorTemplate: `
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px">
+          <h2 style="color:#d93025">Consent failed</h2><p>{error}</p>
+        </body></html>`,
+    })
+    if (result && result.account) _msalAccount = result.account
     return result ? result.accessToken : null
   } catch (e) {
-    log('[msal] graph token acquire failed: ' + e.message)
+    log('[msal] interactive graph token acquire failed: ' + e.message)
     return null
   }
 }
@@ -300,12 +338,12 @@ async function fetchBootstrap () {
 async function runAutoSync () {
   if (!_msalApp) return  // no auth configured
 
-  const graphToken = await msAcquireGraphToken()
+  // Autosync runs in the background — never trigger an interactive prompt.
+  // If silent acquire fails the user will see a consent prompt the next time
+  // they manually click Sync (which goes through ipcMain 'get-ms-graph-token').
+  const graphToken = await msAcquireGraphToken({ allowInteractive: false })
   if (!graphToken) {
-    // User isn't signed in (or MSAL refresh token expired) — skip this tick.
-    // We'll try again on the next interval. The user will re-sign-in
-    // through the login screen when they next interact with the app.
-    log('[autosync] skipped — no Graph token available')
+    log('[autosync] skipped — no Graph token available (silent acquire failed)')
     return
   }
 
@@ -573,7 +611,7 @@ function createMainWindow (port) {
     show:   false,
     titleBarStyle:    'hidden',
     titleBarOverlay:  {
-      color:       readUiSettings().theme === 'dark' ? '#1f1f1f' : '#ffffff',
+      color:       readUiSettings().theme === 'dark' ? '#131316' : '#ffffff',
       symbolColor: readUiSettings().theme === 'dark' ? '#e8eaed' : '#3c4043',
       height:      56,
     },
@@ -857,7 +895,7 @@ ipcMain.handle('set-theme', (_event, theme) => {
   if (mainWindow) {
     const isDark = theme === 'dark'
     mainWindow.setTitleBarOverlay({
-      color:       isDark ? '#1f1f1f' : '#ffffff',
+      color:       isDark ? '#131316' : '#ffffff',
       symbolColor: isDark ? '#e8eaed' : '#3c4043',
       height:      56,
     })
