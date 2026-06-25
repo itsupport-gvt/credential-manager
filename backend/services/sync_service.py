@@ -361,6 +361,15 @@ def sync_from_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict
                         else:
                             fields[jf] = safe
 
+                # Auto-derive mfa_enabled from the (validated) mfa_methods_json
+                if "mfa_methods_json" in fields:
+                    import json as _json
+                    try:
+                        methods = _json.loads(fields["mfa_methods_json"] or "[]")
+                        fields["mfa_enabled"] = "Yes" if methods else "No"
+                    except Exception:
+                        pass
+
                 existing = db.query(DBCredential).filter(
                     DBCredential.credential_id == cred_id
                 ).first()

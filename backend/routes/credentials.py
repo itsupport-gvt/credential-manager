@@ -229,7 +229,7 @@ def create_credential(
         client_secret_enc=crypto.encrypt(body.client_secret),
         recovery_email=body.recovery_email or "",
         recovery_phone=body.recovery_phone or "",
-        mfa_enabled=body.mfa_enabled or "No",
+        mfa_enabled="Yes" if body.mfa_methods else "No",
         mfa_type=body.mfa_type or "",
         mfa_app_name=body.mfa_app_name or "",
         backup_codes_location=body.backup_codes_location or "",
@@ -327,10 +327,12 @@ def update_credential(
         changed_fields.append("authorized_users")
         cred.authorized_users_json = new_authorized
 
-    new_mfa = json.dumps(body.mfa_methods or [])
+    new_mfa_list = body.mfa_methods or []
+    new_mfa = json.dumps(new_mfa_list)
     if new_mfa != (cred.mfa_methods_json or "[]"):
         changed_fields.append("mfa_methods")
         cred.mfa_methods_json = new_mfa
+    cred.mfa_enabled = "Yes" if new_mfa_list else "No"
 
     # Sensitive fields – only re-encrypt if the caller provided a non-empty value
     sensitive_map = {
