@@ -213,6 +213,9 @@ export const api = {
   // Admin — reset-db re-pulls from Excel, so it also needs the Graph token
   resetDb: () => req<{ status: string; deleted_credentials: number; deleted_logs: number; synced: unknown }>('/api/admin/reset-db', { method: 'POST', graph: true }),
 
+  // Admin — mark every credential needs_sync=true so next push repopulates all Excel rows
+  markAllForSync: () => req<{ status: string; marked: number }>('/api/admin/mark-all-for-sync', { method: 'POST' }),
+
   // Auth
   getMe: () => req<{ auth_enabled: boolean; user: { oid: string; name: string; email: string; role: string } | null }>('/api/auth/me'),
   listAuthUsers: () => req<AuthUser[]>('/api/auth/users'),

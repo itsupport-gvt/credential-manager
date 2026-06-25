@@ -52,7 +52,7 @@ CRED_COLUMN_MAP: dict[str, str] = {
     "Status": "status",
     "Priority": "priority",
     "Username_Email": "username_email",
-    "Password": "password_enc",          # plaintext in Excel → encrypt
+    "Password": "password_enc",          # plaintext in Excel → encrypt on pull
     "Recovery_Email": "recovery_email",
     "Recovery_Phone": "recovery_phone",
     "MFA_Enabled": "mfa_enabled",
@@ -73,16 +73,20 @@ CRED_COLUMN_MAP: dict[str, str] = {
     "Payment_Reference": "payment_reference",
     "Access_Level": "access_level",
     "Linked_Credential_ID": "linked_credential_id",
-    "API_Key": "api_key_enc",            # plaintext in Excel → encrypt
-    "API_Secret": "api_secret_enc",      # plaintext in Excel → encrypt
+    "API_Key": "api_key_enc",            # plaintext in Excel → encrypt on pull
+    "API_Secret": "api_secret_enc",      # plaintext in Excel → encrypt on pull
     "Client_ID": "client_id",
-    "Client_Secret": "client_secret_enc",  # plaintext in Excel → encrypt
+    "Client_Secret": "client_secret_enc",  # plaintext in Excel → encrypt on pull
     "Tenant_ID_App": "tenant_id_app",
     "Subscription_ID_Azure": "subscription_id_azure",
     "Server_Hostname": "server_hostname",
     "Port": "port",
     "Protocol": "protocol",
     "Database_Name": "database_name",
+    # Stored as JSON arrays in DB; columns were previously missing or misnamed in Excel.
+    # Excel must have columns named exactly: "Authorized_Users", "MFA_Methods"
+    "Authorized_Users": "authorized_users_json",
+    "MFA_Methods": "mfa_methods_json",
     "Managed_By": "managed_by",
     "Managed_By_Email": "managed_by_email",
     "Created_By": "created_by",
@@ -258,6 +262,29 @@ def _str(val: Any) -> str:
     return "" if s.lower() in ("none", "nan") else s
 
 
+def _safe_json_str(val: Any) -> str | None:
+    """Return *val* as a JSON-array string if parseable, else None.
+
+    Used when pulling JSON-array fields (authorized_users_json,
+    mfa_methods_json) from Excel so bad/legacy data never corrupts the DB.
+    Returns '' or '[]' for empty/null values; returns None for strings that
+    are not valid JSON arrays (e.g. old human-readable format).
+    """
+    import json as _json
+    s = _str(val)
+    if not s:
+        return "[]"
+    try:
+        parsed = _json.loads(s)
+        return s if isinstance(parsed, list) else None
+    except Exception:
+        return None
+
+
+# JSON-array DB fields — handled specially in both push and pull
+_JSON_FIELDS = {"authorized_users_json", "mfa_methods_json"}
+
+
 # ---------------------------------------------------------------------------
 # sync_from_excel
 # ---------------------------------------------------------------------------
@@ -323,6 +350,16 @@ def sync_from_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict
                         fields["monthly_cost"] = float(fields["monthly_cost"] or 0)
                     except (TypeError, ValueError):
                         fields["monthly_cost"] = 0.0
+
+                # Validate JSON-array fields — reject old human-readable or non-JSON values
+                for jf in _JSON_FIELDS:
+                    if jf in fields:
+                        safe = _safe_json_str(fields[jf])
+                        if safe is None:
+                            # Not a valid JSON array (e.g. old "Dev <dev@...>" format) — skip
+                            del fields[jf]
+                        else:
+                            fields[jf] = safe
 
                 existing = db.query(DBCredential).filter(
                     DBCredential.credential_id == cred_id
@@ -569,13 +606,14 @@ def sync_to_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict[s
                 if cid:
                     excel_index[cid] = er["_row_index"]
 
+            # Normalised column map — handles headers with accidental trailing/leading spaces
+            _norm_col_map = {_normalise_key(k): v for k, v in CRED_COLUMN_MAP.items()}
+
             for cred in pending_creds:
                 row_dict: dict[str, Any] = {}
                 for header in headers:
-                    if header == "Authorized_Users":
-                        # Serialized separately below
-                        continue
-                    db_field = CRED_COLUMN_MAP.get(header)
+                    # Resolve DB field via exact name first, then normalised fallback
+                    db_field = CRED_COLUMN_MAP.get(header) or _norm_col_map.get(_normalise_key(header))
                     if db_field is None:
                         row_dict[header] = ""
                         continue
@@ -583,21 +621,12 @@ def sync_to_excel(db: Session, graph: GraphClient, scope: str = "all") -> dict[s
                         # Decrypt before sending to Excel
                         enc_val = getattr(cred, db_field, "") or ""
                         row_dict[header] = crypto.decrypt(enc_val)
+                    elif db_field in _JSON_FIELDS:
+                        # JSON-array fields — write the raw JSON string (or empty array)
+                        row_dict[header] = getattr(cred, db_field, "") or "[]"
                     else:
                         val = getattr(cred, db_field, "")
                         row_dict[header] = "" if val is None else str(val) if not isinstance(val, (int, float)) else val
-
-                # Serialize authorized_users as a human-readable string if column exists
-                if "Authorized_Users" in headers:
-                    try:
-                        import json as _json
-                        au_list = _json.loads(cred.authorized_users_json or "[]")
-                        row_dict["Authorized_Users"] = "; ".join(
-                            f"{u.get('name', '')} <{u.get('email', '')}> ({u.get('access_level', 'Read')})"
-                            for u in au_list if u.get("email")
-                        )
-                    except Exception:
-                        row_dict["Authorized_Users"] = ""
 
                 if cred.credential_id in excel_index:
                     graph.update_table_row(

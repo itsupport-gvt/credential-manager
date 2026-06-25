@@ -50,7 +50,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.4.7"
+APP_VERSION = "1.4.8"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
@@ -268,6 +268,32 @@ def reset_database(x_ms_graph_token: str | None = Header(default=None)) -> dict:
             status_code=500,
             content={"status": "error", "detail": str(exc)},
         )
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin: mark all credentials as needs_sync so a push will refresh every row
+# ---------------------------------------------------------------------------
+
+@app.post("/api/admin/mark-all-for-sync", tags=["admin"])
+def mark_all_for_sync() -> dict:
+    """
+    Mark every local credential as needs_sync=True.
+
+    Use this after adding new columns to the SharePoint Excel table so that
+    the next push sends ALL rows (including existing ones) and fully populates
+    the new columns (e.g. MFA_Methods, Last_Modified_At, Authorized_Users).
+    """
+    from models_db import DBCredential
+    db = SessionLocal()
+    try:
+        count = db.query(DBCredential).update({"needs_sync": True})
+        db.commit()
+        return {"status": "ok", "marked": count}
+    except Exception as exc:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"status": "error", "detail": str(exc)})
     finally:
         db.close()
 

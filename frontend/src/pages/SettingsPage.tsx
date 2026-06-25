@@ -54,6 +54,7 @@ export default function SettingsPage() {
   const [refPushBusy, setRefPushBusy] = useState(false)
   const [refPullBusy, setRefPullBusy] = useState(false)
   const [resetBusy, setResetBusy] = useState(false)
+  const [repopulateBusy, setRepopulateBusy] = useState(false)
   const [configLoading, setConfigLoading] = useState(false)
   const [configSaving, setConfigSaving] = useState(false)
   const [config, setConfig] = useState({ tenantId: '', clientId: '', authClientId: '', clientSecret: '', fileUrl: '' })
@@ -137,6 +138,21 @@ export default function SettingsPage() {
       api.getAllRefDataItems().then(setRefItems).catch(() => {})
     } catch (e) { showToast(e instanceof Error ? e.message : 'Pull failed', 'error') }
     finally { setRefPullBusy(false) }
+  }
+
+  async function handleRepopulateExcel() {
+    if (!window.confirm(
+      'This will mark ALL credentials for sync and push them to SharePoint, fully repopulating every column (including MFA_Methods, Last_Modified_At, Authorized_Users).\n\nThis can take a while for large datasets. Continue?'
+    )) return
+    setRepopulateBusy(true)
+    try {
+      const m = await api.markAllForSync()
+      showToast(`Marked ${m.marked} credentials — pushing to SharePoint…`, 'info')
+      const r = await api.pushToExcel('credentials')
+      showToast(`Repopulated ${r.pushed_credentials} rows in SharePoint`, 'success')
+      const s = await api.getSyncStatus(); setSyncStatus(s)
+    } catch (e) { showToast(e instanceof Error ? e.message : 'Repopulate failed', 'error') }
+    finally { setRepopulateBusy(false) }
   }
 
   async function handleResetDb() {
@@ -454,6 +470,19 @@ export default function SettingsPage() {
           <a href="/api/changelog/export" download="changelog.csv" className="md-btn md-btn-outlined" style={{ display: 'inline-flex', textDecoration: 'none' }}>
             <span className="icon icon-sm">table_view</span>Export change log
           </a>
+        </Card>
+
+        <Card title="Schema migration">
+          <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 0, marginBottom: 16, lineHeight: 1.6 }}>
+            After adding new columns to the SharePoint Excel table (e.g. <strong>MFA_Methods</strong>,
+            <strong> Last_Modified_At</strong>, or fixing <strong>Authorized_Users</strong>),
+            use this to push every local credential to Excel so the new columns are fully populated.
+          </p>
+          <button className="md-btn md-btn-tonal" onClick={handleRepopulateExcel} disabled={repopulateBusy}>
+            {repopulateBusy
+              ? <><span className="icon icon-sm" style={{ animation: 'spin .8s linear infinite' }}>sync</span>Repopulating…</>
+              : <><span className="icon icon-sm">table_rows</span>Repopulate all Excel rows</>}
+          </button>
         </Card>
 
         <Card title="Application">
