@@ -30,6 +30,10 @@ electron/dist/
 # Generated icon (built in CI via gen-icon.js or ImageMagick)
 electron/icon.ico
 
+# Auth Client ID (and other tenant-specific build config) — written by CI
+# from GitHub Actions secrets. Never commit; only present in built artifacts.
+electron/build-config.json
+
 # Project memory (Claude Code)
 .claude/
 

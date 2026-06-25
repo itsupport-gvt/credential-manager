@@ -228,7 +228,9 @@
 
     <!-- ────────── STEP 1: Sign in ────────── -->
     <div id="step1" class="form">
-      <div class="field">
+
+      <!-- Manual Client ID field — hidden when the build has one baked in -->
+      <div class="field" id="clientIdField">
         <label for="authClientId">Microsoft 365 App Client ID</label>
         <input
           type="text"
@@ -242,6 +244,13 @@
           From your Entra app registration (Overview &rarr; Application (client) ID).
           Your IT admin can provide this if you don't have it.
         </div>
+      </div>
+
+      <!-- Friendly intro shown instead of the field when CI baked one in -->
+      <div class="hint" id="signInIntro" style="display:none;text-align:center;line-height:1.6">
+        Sign in with your Microsoft 365 account.<br/>
+        We'll auto-discover your organisation's tenant and check SharePoint
+        for the shared workbook URL.
       </div>
 
       <button type="button" id="btnSignIn" class="btn btn-primary">
@@ -306,8 +315,9 @@
   <script>
     const $ = (id) => document.getElementById(id)
 
-    let _user     = null
-    let _tenantId = ''
+    let _user             = null
+    let _tenantId         = ''
+    let _defaultClientId  = ''   // baked into build by CI (or empty)
 
     // ───────── helpers ─────────
     function showBanner (kind, msg, icon) {
@@ -360,10 +370,21 @@
     (async function prefill () {
       if (!window.credManager) return
       try {
+        // Check whether the build has a baked-in Auth Client ID — if so,
+        // hide the manual-entry field and use it automatically.
+        if (window.credManager.getDefaultAuthClientId) {
+          _defaultClientId = (await window.credManager.getDefaultAuthClientId()) || ''
+        }
+        if (_defaultClientId) {
+          $('clientIdField').style.display = 'none'
+          $('signInIntro').style.display = ''
+          $('authClientId').value = _defaultClientId
+        }
+
         const cfg = await window.credManager.getConfig()
         if (cfg) {
-          if (cfg.authClientId) $('authClientId').value = cfg.authClientId
-          if (cfg.fileUrl)      $('fileUrl').value      = cfg.fileUrl
+          if (cfg.authClientId && !_defaultClientId) $('authClientId').value = cfg.authClientId
+          if (cfg.fileUrl)                            $('fileUrl').value      = cfg.fileUrl
         }
         // If MSAL was already initialised this launch and there's a cached
         // session, jump straight to step 2.
@@ -377,10 +398,14 @@
       clearBanner()
       clearFieldError('authClientId')
 
-      const cid = $('authClientId').value.trim()
-      if (!cid) { showFieldError('authClientId', 'Client ID is required.'); return }
-      // Loose GUID check
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid)) {
+      const cid = (_defaultClientId || $('authClientId').value).trim()
+      if (!cid) {
+        showFieldError('authClientId', 'Client ID is required.')
+        return
+      }
+      // Loose GUID check (skipped for baked-in IDs since CI already provided them)
+      if (!_defaultClientId &&
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid)) {
         showFieldError('authClientId', 'Must be a valid GUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).')
         return
       }
@@ -452,7 +477,7 @@
 
       const data = {
         tenantId:     _tenantId,
-        authClientId: $('authClientId').value.trim(),
+        authClientId: (_defaultClientId || $('authClientId').value).trim(),
         clientId:     '',  // legacy field — not used in delegated-only mode
         clientSecret: '',  // legacy field — not used in delegated-only mode
         fileUrl:      fu,

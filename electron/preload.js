@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('credManager', {
   // tenant ID (which we decode from the ID token after sign-in).
   initMsal: (data) => ipcRenderer.invoke('init-msal', data),
 
+  // Returns the auth client ID baked into the build (or '' if none).
+  // Setup window uses this to decide whether to show the manual-entry field.
+  getDefaultAuthClientId: () => ipcRenderer.invoke('get-default-auth-client-id'),
+
   // Read currently saved configuration
   getConfig: () => ipcRenderer.invoke('get-config'),
 

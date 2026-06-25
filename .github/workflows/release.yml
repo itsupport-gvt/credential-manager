@@ -113,6 +113,27 @@ jobs:
         working-directory: electron
         run: npm install --no-fund --no-audit
 
+      # ── 8b. Generate build-config.json from secrets ──────────────────────────
+      #    Bakes the Entra Auth Client ID into the build so installed clients
+      #    don't need to enter it manually on first run. The file is gitignored
+      #    and only exists inside the resulting installer (packed into asar).
+      #    Falls back gracefully if the secret is unset (setup window asks).
+      - name: Generate build-config.json
+        working-directory: electron
+        shell: pwsh
+        env:
+          AUTH_CLIENT_ID: ${{ secrets.AUTH_CLIENT_ID }}
+        run: |
+          $cid = $env:AUTH_CLIENT_ID
+          if ([string]::IsNullOrWhiteSpace($cid)) {
+            Write-Warning "AUTH_CLIENT_ID secret is not set — setup window will prompt manually."
+            $cid = ""
+          } else {
+            Write-Host "Baking AUTH_CLIENT_ID into build-config.json ($($cid.Substring(0,8))...)"
+          }
+          $cfg = [ordered]@{ authClientId = $cid }
+          ($cfg | ConvertTo-Json -Compress) | Out-File -FilePath build-config.json -Encoding utf8 -NoNewline
+
       # ── 9. electron-builder — build NSIS installer + publish to GitHub ───────
       - name: Build and publish Electron app
         working-directory: electron

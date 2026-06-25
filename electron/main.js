@@ -138,7 +138,26 @@ function _createMsalCachePlugin () {
 // run when no config.json exists yet, so we can sign the user in BEFORE
 // knowing the tenant or downloading the bootstrap. Override at runtime by
 // setting AUTH_CLIENT_ID in the saved config.
-const _DEFAULT_AUTH_CLIENT_ID = process.env.CRED_AUTH_CLIENT_ID || ''
+//
+// Resolution order (first non-empty wins):
+//   1. CRED_AUTH_CLIENT_ID env var          – useful during local dev
+//   2. electron/build-config.json           – written by the GitHub Actions
+//                                             release workflow from the
+//                                             AUTH_CLIENT_ID repo secret
+//   3. ''                                   – falls back to the setup window's
+//                                             manual Client ID field
+let _DEFAULT_AUTH_CLIENT_ID = (process.env.CRED_AUTH_CLIENT_ID || '').trim()
+if (!_DEFAULT_AUTH_CLIENT_ID) {
+  try {
+    // require() works in dev (file on disk) AND in production (file packed
+    // into the asar archive alongside main.js).
+    const buildCfg = require('./build-config.json')
+    _DEFAULT_AUTH_CLIENT_ID = (buildCfg.authClientId || '').trim()
+  } catch (_) {
+    // build-config.json not present — that's fine in local dev; setup window
+    // will ask for the Client ID manually.
+  }
+}
 
 function initMsal (config) {
   // Authority defaults to "organizations" (multi-tenant) until we know which
@@ -740,6 +759,10 @@ function killBackend () {
 // ---------------------------------------------------------------------------
 // IPC handlers
 // ---------------------------------------------------------------------------
+
+// Returns the Auth Client ID baked into the build (or '' if none) so the
+// setup window can hide the manual-entry field when CI shipped it.
+ipcMain.handle('get-default-auth-client-id', () => _DEFAULT_AUTH_CLIENT_ID)
 
 ipcMain.handle('get-config', () => readConfig())
 
