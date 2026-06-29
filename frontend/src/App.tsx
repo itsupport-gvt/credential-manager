@@ -161,6 +161,109 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
   )
 }
 
+// ── Keyboard shortcuts help modal ────────────────────────────────────────────
+
+const KBD_STYLE: React.CSSProperties = {
+  display: 'inline-block', fontFamily: 'monospace', fontSize: 11,
+  padding: '2px 7px', borderRadius: 4,
+  background: 'var(--surface-3)', border: '1px solid var(--border)',
+  color: 'var(--text-1)', whiteSpace: 'nowrap',
+}
+
+type ShortcutRow = { keys: string | string[]; action: string; scope: string }
+
+function Kbd({ k }: { k: string | string[] }) {
+  const keys = Array.isArray(k) ? k : [k]
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {keys.map((key, i) => (
+        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {i > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>then</span>}
+          <kbd style={KBD_STYLE}>{key}</kbd>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function ShortcutsModal({ onClose, isAdmin, canCreate }: { onClose: () => void; isAdmin: boolean; canCreate: boolean }) {
+  useEffect(() => {
+    const h = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  const groups: { heading: string; rows: ShortcutRow[] }[] = [
+    {
+      heading: 'Navigation',
+      rows: [
+        { keys: ['G', 'D'], action: 'Dashboard',                scope: 'Global' },
+        { keys: ['G', 'C'], action: 'Credentials',              scope: 'Global' },
+        { keys: ['G', 'A'], action: 'Activity log',             scope: 'Global' },
+        { keys: ['G', 'T'], action: 'Tenants',                  scope: 'Global' },
+        { keys: ['G', 'K'], action: 'Categories',               scope: 'Global' },
+        { keys: ['G', 'S'], action: 'Settings',                 scope: 'Global' },
+        ...(isAdmin ? [{ keys: ['G', 'U'], action: 'Users', scope: 'Global · Admin' }] : []),
+      ],
+    },
+    {
+      heading: 'Search',
+      rows: [
+        { keys: '/',   action: 'Focus credentials search',  scope: 'Global' },
+        { keys: 'Esc', action: 'Clear search / close panel', scope: 'Context' },
+      ],
+    },
+    {
+      heading: 'Actions',
+      rows: [
+        ...(canCreate ? [{ keys: 'Ctrl + N', action: 'New credential', scope: 'Global' }] : []),
+        { keys: '?',       action: 'Toggle this help panel',     scope: 'Global' },
+        ...(isAdmin ? [{ keys: 'Ctrl + `', action: 'Toggle server log panel', scope: 'Global · Admin' }] : []),
+      ],
+    },
+  ]
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: 'var(--surface)', borderRadius: 16, padding: '28px 32px', maxWidth: 560, width: '90%', boxShadow: 'var(--shadow-2)', maxHeight: '80vh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 500, color: 'var(--text-1)', fontFamily: "'Google Sans', sans-serif" }}>Keyboard shortcuts</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: 4, borderRadius: 4 }}>
+            <span className="icon icon-sm">close</span>
+          </button>
+        </div>
+
+        {groups.map(g => (
+          <div key={g.heading} style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>{g.heading}</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {g.rows.map((r, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '8px 0', width: 160 }}><Kbd k={r.keys} /></td>
+                    <td style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-1)' }}>{r.action}</td>
+                    <td style={{ padding: '8px 0', fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{r.scope}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+
+        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+          Navigation shortcuts use a two-key sequence: press <kbd style={KBD_STYLE}>G</kbd> then the letter within 800 ms. Shortcuts are disabled when focus is in a text field.
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Admin log panel ──────────────────────────────────────────────────────────
 
 function LogPanel({ onClose }: { onClose: () => void }) {
@@ -378,23 +481,75 @@ function AppInner() {
   const isAdmin = !authEnabled || user?.role === 'Admin'
   const canCreate = !authEnabled || user?.role === 'Admin' || user?.role === 'Editor'
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n' && canCreate) {
-        e.preventDefault()
-        navigate('/credential/new')
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === '`' && isAdmin) {
-        e.preventDefault()
-        setLogPanelOpen(o => !o)
-      }
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [navigate, canCreate, isAdmin])
-
   const [toasts, setToasts] = useState<Toast[]>([])
   const [logPanelOpen, setLogPanelOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  // Refs for two-key G sequence (avoids stale closure in event listener)
+  const pendingGRef = useRef(false)
+  const gTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    function isTyping(e: KeyboardEvent): boolean {
+      const t = e.target as HTMLElement
+      return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable
+    }
+
+    const handler = (e: KeyboardEvent) => {
+      // ── Ctrl / Meta shortcuts (fire even in inputs) ───────────────────
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'n' && canCreate)   { e.preventDefault(); navigate('/credential/new'); return }
+        if (e.key === '`' && isAdmin)     { e.preventDefault(); setLogPanelOpen(o => !o);   return }
+      }
+
+      // ── Esc — close overlays (context-sensitive, in priority order) ───
+      if (e.key === 'Escape') {
+        if (shortcutsOpen) { setShortcutsOpen(false); return }
+        if (logPanelOpen)  { setLogPanelOpen(false);  return }
+      }
+
+      // ── Single-key shortcuts — skip when focus is inside a text field ─
+      if (isTyping(e)) return
+
+      // ── G + letter navigation (two-key sequence) ──────────────────────
+      if (pendingGRef.current) {
+        clearTimeout(gTimerRef.current)
+        pendingGRef.current = false
+        const G_ROUTES: Record<string, string> = {
+          d: '/', c: '/credentials', a: '/changelog',
+          t: '/tenants', k: '/categories', s: '/settings',
+          ...(isAdmin ? { u: '/users' } : {}),
+        }
+        const route = G_ROUTES[e.key.toLowerCase()]
+        if (route) { e.preventDefault(); navigate(route) }
+        return
+      }
+      if (e.key === 'g' || e.key === 'G') {
+        pendingGRef.current = true
+        clearTimeout(gTimerRef.current)
+        gTimerRef.current = setTimeout(() => { pendingGRef.current = false }, 800)
+        return
+      }
+
+      // ── / — focus credentials search ─────────────────────────────────
+      if (e.key === '/') {
+        e.preventDefault()
+        document.dispatchEvent(new CustomEvent('focus-credential-search'))
+        navigate('/credentials')
+        return
+      }
+
+      // ── ? — toggle shortcuts help ─────────────────────────────────────
+      if (e.key === '?') {
+        e.preventDefault()
+        setShortcutsOpen(o => !o)
+        return
+      }
+    }
+
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [navigate, canCreate, isAdmin, shortcutsOpen, logPanelOpen])
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
     (localStorage.getItem('cred-theme') as 'light' | 'dark') || 'light'
   )
@@ -550,6 +705,11 @@ function AppInner() {
                 title="Settings"
                 onClick={() => navigate('/settings')}
               />
+              <HeaderIconBtn
+                icon="keyboard"
+                title="Keyboard shortcuts  (?)"
+                onClick={() => setShortcutsOpen(o => !o)}
+              />
               {isAdmin && (
                 <HeaderIconBtn
                   icon="terminal"
@@ -587,6 +747,7 @@ function AppInner() {
       </div>
 
       {isAdmin && logPanelOpen && <LogPanel onClose={() => setLogPanelOpen(false)} />}
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} isAdmin={isAdmin} canCreate={canCreate} />}
       <ToastContainer toasts={toasts} onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))} />
     </ToastContext.Provider>
   )

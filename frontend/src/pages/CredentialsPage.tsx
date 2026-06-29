@@ -54,13 +54,24 @@ export default function CredentialsPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
   const [page, setPage] = useState(1)
-  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     debRef.current && clearTimeout(debRef.current)
     debRef.current = setTimeout(() => { setDq(query); setPage(1) }, 300)
     return () => { debRef.current && clearTimeout(debRef.current) }
   }, [query])
+
+  // Focus search when the global '/' shortcut fires (or when navigating here via '/')
+  useEffect(() => {
+    const handler = () => {
+      searchRef.current?.focus()
+      searchRef.current?.select()
+    }
+    document.addEventListener('focus-credential-search', handler)
+    return () => document.removeEventListener('focus-credential-search', handler)
+  }, [])
 
   useEffect(() => {
     api.listTenants().then(setTenants).catch(() => {})
@@ -108,10 +119,12 @@ export default function CredentialsPage() {
             color: 'var(--text-3)', pointerEvents: 'none',
           }}>search</span>
           <input
+            ref={searchRef}
             type="text"
             placeholder="Search service, tenant, username…"
             value={query}
             onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); e.currentTarget.blur() } }}
             className="md-input"
             style={{ paddingLeft: 42 }}
           />
