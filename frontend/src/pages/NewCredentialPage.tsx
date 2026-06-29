@@ -19,6 +19,49 @@ const DEFAULT_AUTO_RENEWALS  = ['Yes', 'No', 'Unknown']
 
 const BLANK_MFA: MfaMethod = { type: 'TOTP', app_name: '', person_name: '', person_email: '', phone: '', notes: '' }
 
+// Which fields appear in Section 2 depends on the credential type
+type AuthProfile = {
+  showUsername: boolean
+  showPassword: boolean
+  showRecovery: boolean
+  showApiKey:   boolean
+  showOAuth:    boolean
+  showServer:   boolean    // hostname + port
+  showDatabase: boolean    // protocol + database name (only when showServer also true)
+}
+
+function getAuthProfile(credType: string): AuthProfile {
+  const off: AuthProfile = {
+    showUsername: false, showPassword: false, showRecovery: false,
+    showApiKey: false, showOAuth: false, showServer: false, showDatabase: false,
+  }
+  switch (credType) {
+    case 'API Key':
+    case 'License Key':    return { ...off, showApiKey: true }
+    case 'OAuth2':         return { ...off, showOAuth: true }
+    case 'Database':       return { ...off, showUsername: true, showPassword: true, showServer: true, showDatabase: true }
+    case 'SSH':            return { ...off, showUsername: true, showServer: true }
+    case 'OTP-Only':       return { ...off, showUsername: true, showRecovery: true }
+    case 'Identity / SSO': return { ...off, showUsername: true, showRecovery: true }
+    case 'Certificate':    return off
+    case 'Custom':         return { showUsername: true, showPassword: true, showRecovery: true, showApiKey: true, showOAuth: true, showServer: true, showDatabase: true }
+    default:               return { ...off, showUsername: true, showPassword: true, showRecovery: true }
+  }
+}
+
+function authSectionTitle(credType: string): string {
+  switch (credType) {
+    case 'API Key':     return '2. API Credentials'
+    case 'License Key': return '2. License Key'
+    case 'OAuth2':      return '2. OAuth / App Credentials'
+    case 'Database':    return '2. Database Connection'
+    case 'SSH':         return '2. SSH Access'
+    case 'Certificate': return '2. Certificate Details'
+    case 'Custom':      return '2. Authentication / Credentials'
+    default:            return '2. Authentication'
+  }
+}
+
 function FF({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <div>
@@ -130,6 +173,7 @@ export default function NewCredentialPage() {
   const [errors, setErrors]         = useState<string[]>([])
   const [mfaMethods, setMfaMethods] = useState<MfaMethod[]>([])
   const [authUsers, setAuthUsers]   = useState<AuthorizedUser[]>([])
+  const [credOptions, setCredOptions] = useState<Array<{ credential_id: string; service_name: string; tenant_name: string }>>([])
   const [suggestions, setSuggestions] = useState<{
     service_names: string[]; service_urls: string[]; usernames: string[]
     recovery_emails: string[]; recovery_phones: string[]; backup_codes_locations: string[]
@@ -149,17 +193,17 @@ export default function NewCredentialPage() {
     mfa_app_names: [], mfa_person_names: [], mfa_person_emails: [],
     managed_by: [], managed_by_emails: [], created_by: [], tags: [],
   })
-  const [refData, setRefData]       = useState<ReferenceData>({})
+  const [refData, setRefData] = useState<ReferenceData>({})
 
   useEffect(() => {
     api.listTenants().then(setTenants).catch(() => {})
     api.listCategories().then(setCategories).catch(() => {})
     api.getSuggestions().then(setSuggestions).catch(() => {})
     api.getReferenceData().then(setRefData).catch(() => {})
+    api.listCredentials({ page_size: 500 }).then(r => setCredOptions(r.items.map(c => ({ credential_id: c.credential_id, service_name: c.service_name, tenant_name: c.tenant_name })))).catch(() => {})
   }, [])
 
-  // Auto-focus the first form field so the user can start typing immediately
-  // (and Tab through the form without reaching for the mouse).
+  // Auto-focus the first form field
   useEffect(() => {
     const t = setTimeout(() => {
       const first = formRef.current?.querySelector<HTMLElement>(
@@ -178,8 +222,8 @@ export default function NewCredentialPage() {
       const target = e.target as HTMLElement
       if (!target || target.tagName === 'BUTTON') return
       const rect = target.getBoundingClientRect()
-      const HEADER_H = 72   // 56px header + 16px breathing room
-      const FOOTER_H = 80   // 64px save bar + 16px breathing room
+      const HEADER_H = 72
+      const FOOTER_H = 80
       if (rect.top < HEADER_H) {
         window.scrollBy({ top: rect.top - HEADER_H, behavior: 'smooth' })
       } else if (rect.bottom > window.innerHeight - FOOTER_H) {
@@ -223,12 +267,15 @@ export default function NewCredentialPage() {
   const BILLING_CYCLES = refData.billing_cycle   ?? DEFAULT_BILLING_CYCLES
   const AUTO_RENEWALS  = refData.auto_renewal    ?? DEFAULT_AUTO_RENEWALS
 
+  const ap       = getAuthProfile(form.credential_type)
+  const secTitle = authSectionTitle(form.credential_type)
+
   function validate() {
     const e: string[] = []
     if (!form.tenant_code) e.push('Tenant is required')
     if (!form.category) e.push('Category is required')
     if (!form.service_name) e.push('Service Name is required')
-    if (!form.username_email) e.push('Username / Email is required')
+    if (ap.showUsername && !form.username_email) e.push('Username / Email is required')
     return e
   }
 
@@ -301,26 +348,12 @@ export default function NewCredentialPage() {
           </FF>
           <FF label="Subcategory">
             {subcategories.length > 0 ? (
-              <select
-                name="subcategory"
-                value={form.subcategory}
-                onChange={handleChange}
-                className="md-select"
-                disabled={!form.category}
-              >
+              <select name="subcategory" value={form.subcategory} onChange={handleChange} className="md-select" disabled={!form.category}>
                 <option value="">{form.category ? 'Select…' : 'Select category first'}</option>
                 {subcategories.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : (
-              <input
-                type="text"
-                name="subcategory"
-                value={form.subcategory}
-                onChange={handleChange}
-                className="md-input"
-                disabled={!form.category}
-                placeholder={form.category ? '' : 'Select category first'}
-              />
+              <input type="text" name="subcategory" value={form.subcategory} onChange={handleChange} className="md-input" disabled={!form.category} placeholder={form.category ? '' : 'Select category first'} />
             )}
           </FF>
           <FF label="Service Name" required>
@@ -332,16 +365,59 @@ export default function NewCredentialPage() {
           <FF label="Environment"><SI name="environment" value={form.environment} onChange={handleChange} options={ENVIRONMENTS} /></FF>
           <FF label="Status" required><SI name="status" value={form.status} onChange={handleChange} options={STATUSES} /></FF>
           <FF label="Priority" required><SI name="priority" value={form.priority} onChange={handleChange} options={PRIORITIES} /></FF>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <FF label="Parent Credential (shared identity)">
+              <SearchableSelect
+                value={form.linked_credential_id}
+                onChange={v => setForm(f => ({ ...f, linked_credential_id: v }))}
+                options={credOptions.map(c => ({ value: c.credential_id, label: c.service_name, sublabel: `${c.credential_id} · ${c.tenant_name}` }))}
+                placeholder="None — standalone credential"
+                allowClear
+                emptyLabel="No credentials found"
+              />
+            </FF>
+          </div>
         </Sec>
 
-        <Sec title="2. Authentication">
-          <FF label="Username / Email" required>
-            <AutoInput name="username_email" value={form.username_email} onChange={handleChange} suggestions={suggestions.usernames} required />
-          </FF>
-          <FF label="Password"><PI name="password" value={form.password} onChange={handleChange} /></FF>
-          <FF label="Recovery Email"><AutoInput name="recovery_email" value={form.recovery_email} onChange={handleChange} suggestions={suggestions.recovery_emails} type="email" /></FF>
-          <FF label="Recovery Phone"><AutoInput name="recovery_phone" value={form.recovery_phone} onChange={handleChange} suggestions={suggestions.recovery_phones} type="tel" /></FF>
-          <FF label="Backup Codes Location"><AutoInput name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} suggestions={suggestions.backup_codes_locations} /></FF>
+        <Sec title={secTitle}>
+          {ap.showUsername && (
+            <FF label="Username / Email" required>
+              <AutoInput name="username_email" value={form.username_email} onChange={handleChange} suggestions={suggestions.usernames} required />
+            </FF>
+          )}
+          {ap.showPassword && <FF label="Password"><PI name="password" value={form.password} onChange={handleChange} /></FF>}
+          {ap.showApiKey && (
+            <>
+              <FF label="API Key"><PI name="api_key" value={form.api_key} onChange={handleChange} /></FF>
+              <FF label="API Secret"><PI name="api_secret" value={form.api_secret} onChange={handleChange} /></FF>
+            </>
+          )}
+          {ap.showOAuth && (
+            <>
+              <FF label="Client ID"><AutoInput name="client_id" value={form.client_id} onChange={handleChange} suggestions={suggestions.client_ids} /></FF>
+              <FF label="Client Secret"><PI name="client_secret" value={form.client_secret} onChange={handleChange} /></FF>
+              <FF label="Tenant ID (App)"><AutoInput name="tenant_id_app" value={form.tenant_id_app} onChange={handleChange} suggestions={suggestions.tenant_id_apps} /></FF>
+            </>
+          )}
+          {ap.showServer && (
+            <>
+              <FF label="Server Hostname"><AutoInput name="server_hostname" value={form.server_hostname} onChange={handleChange} suggestions={suggestions.server_hostnames} /></FF>
+              <FF label="Port"><AutoInput name="port" value={form.port} onChange={handleChange} suggestions={suggestions.ports} placeholder="e.g. 22, 3306, 5432" /></FF>
+            </>
+          )}
+          {ap.showDatabase && (
+            <>
+              <FF label="Protocol"><SI name="protocol" value={form.protocol} onChange={handleChange} options={PROTOCOLS} placeholder="Select…" /></FF>
+              <FF label="Database Name"><AutoInput name="database_name" value={form.database_name} onChange={handleChange} suggestions={suggestions.database_names} /></FF>
+            </>
+          )}
+          {ap.showRecovery && (
+            <>
+              <FF label="Recovery Email"><AutoInput name="recovery_email" value={form.recovery_email} onChange={handleChange} suggestions={suggestions.recovery_emails} type="email" /></FF>
+              <FF label="Recovery Phone"><AutoInput name="recovery_phone" value={form.recovery_phone} onChange={handleChange} suggestions={suggestions.recovery_phones} type="tel" /></FF>
+              <FF label="Backup Codes Location"><AutoInput name="backup_codes_location" value={form.backup_codes_location} onChange={handleChange} suggestions={suggestions.backup_codes_locations} /></FF>
+            </>
+          )}
           <div style={{ gridColumn: '1 / -1' }}>
             <FF label="Security Notes"><textarea name="security_notes" value={form.security_notes} onChange={handleChange} rows={2} className="md-textarea" /></FF>
           </div>
@@ -349,10 +425,7 @@ export default function NewCredentialPage() {
 
         {/* MFA Methods */}
         <div className="md-card" style={{ overflow: 'hidden', marginBottom: 12, padding: 0 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '16px 20px',
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px' }}>
             <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>
               3. MFA Methods
             </span>
@@ -362,22 +435,16 @@ export default function NewCredentialPage() {
           </div>
           <div style={{ padding: mfaMethods.length ? '4px 20px 20px' : '0 20px 20px', borderTop: '1px solid var(--border)' }}>
             {mfaMethods.length === 0 && (
-              <div style={{ padding: '16px 0', color: 'var(--text-3)', fontSize: 14 }}>
-                No MFA methods — click Add MFA to configure
-              </div>
+              <div style={{ padding: '16px 0', color: 'var(--text-3)', fontSize: 14 }}>No MFA methods — click Add MFA to configure</div>
             )}
             {mfaMethods.map((m, i) => (
               <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginTop: 12, position: 'relative' }}>
                 <button type="button" onClick={() => setMfaMethods(prev => prev.filter((_, idx) => idx !== i))} style={{
-                  position: 'absolute', top: 8, right: 8,
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  width: 28, height: 28, borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--text-2)',
+                  position: 'absolute', top: 8, right: 8, background: 'transparent', border: 'none', cursor: 'pointer',
+                  width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)' }}
-                >
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)' }}>
                   <span className="icon icon-sm">delete</span>
                 </button>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingRight: 32 }}>
@@ -393,7 +460,7 @@ export default function NewCredentialPage() {
           </div>
         </div>
 
-        {/* Authorized Users — overflow visible so the directory picker dropdown isn't clipped */}
+        {/* Authorized Users */}
         <div className="md-card" style={{ marginBottom: 12, padding: 0 }}>
           <div style={{ padding: '16px 20px', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
             <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>
@@ -419,19 +486,35 @@ export default function NewCredentialPage() {
           <FF label="Payment Reference"><AutoInput name="payment_reference" value={form.payment_reference} onChange={handleChange} suggestions={suggestions.payment_references} /></FF>
         </Sec>
 
-        <Sec title="6. Technical / API" defaultOpen={false}>
+        {/* Fields that moved to Section 2 for the current type are hidden here to avoid duplication */}
+        <Sec title="6. Technical" defaultOpen={false}>
           <FF label="Access Level"><SI name="access_level" value={form.access_level} onChange={handleChange} options={ACCESS_LEVELS} placeholder="Select…" /></FF>
-          <FF label="Linked Credential ID"><TI name="linked_credential_id" value={form.linked_credential_id} onChange={handleChange} /></FF>
-          <FF label="API Key"><PI name="api_key" value={form.api_key} onChange={handleChange} /></FF>
-          <FF label="API Secret"><PI name="api_secret" value={form.api_secret} onChange={handleChange} /></FF>
-          <FF label="Client ID"><AutoInput name="client_id" value={form.client_id} onChange={handleChange} suggestions={suggestions.client_ids} /></FF>
-          <FF label="Client Secret"><PI name="client_secret" value={form.client_secret} onChange={handleChange} /></FF>
-          <FF label="Tenant ID (App)"><AutoInput name="tenant_id_app" value={form.tenant_id_app} onChange={handleChange} suggestions={suggestions.tenant_id_apps} /></FF>
           <FF label="Azure Subscription ID"><AutoInput name="subscription_id_azure" value={form.subscription_id_azure} onChange={handleChange} suggestions={suggestions.subscription_id_azures} /></FF>
-          <FF label="Server Hostname"><AutoInput name="server_hostname" value={form.server_hostname} onChange={handleChange} suggestions={suggestions.server_hostnames} /></FF>
-          <FF label="Port"><AutoInput name="port" value={form.port} onChange={handleChange} suggestions={suggestions.ports} placeholder="e.g. 443, 22, 3306" /></FF>
-          <FF label="Protocol"><SI name="protocol" value={form.protocol} onChange={handleChange} options={PROTOCOLS} placeholder="Select…" /></FF>
-          <FF label="Database Name"><AutoInput name="database_name" value={form.database_name} onChange={handleChange} suggestions={suggestions.database_names} /></FF>
+          {!ap.showApiKey && (
+            <>
+              <FF label="API Key"><PI name="api_key" value={form.api_key} onChange={handleChange} /></FF>
+              <FF label="API Secret"><PI name="api_secret" value={form.api_secret} onChange={handleChange} /></FF>
+            </>
+          )}
+          {!ap.showOAuth && (
+            <>
+              <FF label="Client ID"><AutoInput name="client_id" value={form.client_id} onChange={handleChange} suggestions={suggestions.client_ids} /></FF>
+              <FF label="Client Secret"><PI name="client_secret" value={form.client_secret} onChange={handleChange} /></FF>
+              <FF label="Tenant ID (App)"><AutoInput name="tenant_id_app" value={form.tenant_id_app} onChange={handleChange} suggestions={suggestions.tenant_id_apps} /></FF>
+            </>
+          )}
+          {!ap.showServer && (
+            <>
+              <FF label="Server Hostname"><AutoInput name="server_hostname" value={form.server_hostname} onChange={handleChange} suggestions={suggestions.server_hostnames} /></FF>
+              <FF label="Port"><AutoInput name="port" value={form.port} onChange={handleChange} suggestions={suggestions.ports} placeholder="e.g. 443, 22, 3306" /></FF>
+            </>
+          )}
+          {!ap.showDatabase && (
+            <>
+              <FF label="Protocol"><SI name="protocol" value={form.protocol} onChange={handleChange} options={PROTOCOLS} placeholder="Select…" /></FF>
+              <FF label="Database Name"><AutoInput name="database_name" value={form.database_name} onChange={handleChange} suggestions={suggestions.database_names} /></FF>
+            </>
+          )}
         </Sec>
 
         <Sec title="7. Ownership & Tracking" defaultOpen={false}>

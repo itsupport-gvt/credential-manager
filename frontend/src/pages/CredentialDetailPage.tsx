@@ -7,6 +7,49 @@ import { PriorityBadge } from '../components/PriorityBadge'
 import { MaskedField } from '../components/MaskedField'
 import { useToast } from '../App'
 
+// Which fields appear in Section 2 (Authentication) depends on credential type
+type AuthProfile = {
+  showUsername: boolean
+  showPassword: boolean
+  showRecovery: boolean
+  showApiKey:   boolean
+  showOAuth:    boolean
+  showServer:   boolean
+  showDatabase: boolean
+}
+
+function getAuthProfile(credType: string): AuthProfile {
+  const off: AuthProfile = {
+    showUsername: false, showPassword: false, showRecovery: false,
+    showApiKey: false, showOAuth: false, showServer: false, showDatabase: false,
+  }
+  switch (credType) {
+    case 'API Key':
+    case 'License Key':    return { ...off, showApiKey: true }
+    case 'OAuth2':         return { ...off, showOAuth: true }
+    case 'Database':       return { ...off, showUsername: true, showPassword: true, showServer: true, showDatabase: true }
+    case 'SSH':            return { ...off, showUsername: true, showServer: true }
+    case 'OTP-Only':       return { ...off, showUsername: true, showRecovery: true }
+    case 'Identity / SSO': return { ...off, showUsername: true, showRecovery: true }
+    case 'Certificate':    return off
+    case 'Custom':         return { showUsername: true, showPassword: true, showRecovery: true, showApiKey: true, showOAuth: true, showServer: true, showDatabase: true }
+    default:               return { ...off, showUsername: true, showPassword: true, showRecovery: true }
+  }
+}
+
+function authSectionTitle(credType: string): string {
+  switch (credType) {
+    case 'API Key':     return '2. API Credentials'
+    case 'License Key': return '2. License Key'
+    case 'OAuth2':      return '2. OAuth / App Credentials'
+    case 'Database':    return '2. Database Connection'
+    case 'SSH':         return '2. SSH Access'
+    case 'Certificate': return '2. Certificate Details'
+    case 'Custom':      return '2. Authentication / Credentials'
+    default:            return '2. Authentication'
+  }
+}
+
 function CopyableValue({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
   async function copy() {
@@ -352,17 +395,64 @@ export default function CredentialDetailPage() {
             <FR label="Priority" value={cred.priority ? <PriorityBadge priority={cred.priority} /> : null} />
           </Section>
 
-          <Section title="2. Authentication">
-            <FR label="Username / Email" value={cred.username_email ? <CopyableValue value={cred.username_email} /> : null} />
-            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Password</div>
-              <MaskedField label="" credentialId={cred.credential_id} field="password" hasValue={cred.has_password} />
-            </div>
-            <FR label="Recovery Email" value={fmt(cred.recovery_email)} />
-            <FR label="Recovery Phone" value={fmt(cred.recovery_phone)} />
-            <FR label="Backup Codes" value={fmt(cred.backup_codes_location)} />
-            <FR label="Security Notes" value={fmt(cred.security_notes)} />
-          </Section>
+          {(() => {
+            const ap = getAuthProfile(cred.credential_type)
+            return (
+              <Section title={authSectionTitle(cred.credential_type)}>
+                {ap.showUsername && (
+                  <FR label="Username / Email" value={cred.username_email ? <CopyableValue value={cred.username_email} /> : null} />
+                )}
+                {ap.showPassword && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Password</div>
+                    <MaskedField label="" credentialId={cred.credential_id} field="password" hasValue={cred.has_password} />
+                  </div>
+                )}
+                {ap.showApiKey && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Key</div>
+                      <MaskedField label="" credentialId={cred.credential_id} field="api_key" hasValue={cred.has_api_key} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Secret</div>
+                      <MaskedField label="" credentialId={cred.credential_id} field="api_secret" hasValue={cred.has_api_secret} />
+                    </div>
+                  </>
+                )}
+                {ap.showOAuth && (
+                  <>
+                    <FR label="Client ID" value={fmt(cred.client_id)} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Client Secret</div>
+                      <MaskedField label="" credentialId={cred.credential_id} field="client_secret" hasValue={cred.has_client_secret} />
+                    </div>
+                    <FR label="Tenant ID (App)" value={fmt(cred.tenant_id_app)} />
+                  </>
+                )}
+                {ap.showServer && (
+                  <>
+                    <FR label="Server Hostname" value={fmt(cred.server_hostname)} />
+                    <FR label="Port" value={fmt(cred.port)} />
+                  </>
+                )}
+                {ap.showDatabase && (
+                  <>
+                    <FR label="Protocol" value={fmt(cred.protocol)} />
+                    <FR label="Database Name" value={fmt(cred.database_name)} />
+                  </>
+                )}
+                {ap.showRecovery && (
+                  <>
+                    <FR label="Recovery Email" value={fmt(cred.recovery_email)} />
+                    <FR label="Recovery Phone" value={fmt(cred.recovery_phone)} />
+                    <FR label="Backup Codes" value={fmt(cred.backup_codes_location)} />
+                  </>
+                )}
+                <FR label="Security Notes" value={fmt(cred.security_notes)} />
+              </Section>
+            )
+          })()}
 
           <Section title="3. MFA Methods" open={(cred.mfa_methods?.length ?? 0) > 0}>
             {(!cred.mfa_methods || cred.mfa_methods.length === 0) ? (
@@ -434,34 +524,55 @@ export default function CredentialDetailPage() {
             <FR label="Payment Reference" value={fmt(cred.payment_reference)} />
           </Section>
 
-          <Section title="6. Technical / API" open={false}>
-            <FR label="Access Level" value={fmt(cred.access_level)} />
-            <FR label="Linked Credential" value={cred.linked_credential_id ? (
-              <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <span className="icon icon-sm">lock</span>
-                {parent ? parent.service_name : cred.linked_credential_id}
-              </Link>
-            ) : null} />
-            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Key</div>
-              <MaskedField label="" credentialId={cred.credential_id} field="api_key" hasValue={cred.has_api_key} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Secret</div>
-              <MaskedField label="" credentialId={cred.credential_id} field="api_secret" hasValue={cred.has_api_secret} />
-            </div>
-            <FR label="Client ID" value={fmt(cred.client_id)} />
-            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Client Secret</div>
-              <MaskedField label="" credentialId={cred.credential_id} field="client_secret" hasValue={cred.has_client_secret} />
-            </div>
-            <FR label="Tenant ID (App)" value={fmt(cred.tenant_id_app)} />
-            <FR label="Azure Subscription ID" value={fmt(cred.subscription_id_azure)} />
-            <FR label="Server Hostname" value={fmt(cred.server_hostname)} />
-            <FR label="Port" value={fmt(cred.port)} />
-            <FR label="Protocol" value={fmt(cred.protocol)} />
-            <FR label="Database Name" value={fmt(cred.database_name)} />
-          </Section>
+          {(() => {
+            const ap = getAuthProfile(cred.credential_type)
+            return (
+              <Section title="6. Technical" open={false}>
+                <FR label="Access Level" value={fmt(cred.access_level)} />
+                <FR label="Linked Credential" value={cred.linked_credential_id ? (
+                  <Link to={`/credential/${cred.linked_credential_id}`} style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span className="icon icon-sm">lock</span>
+                    {parent ? parent.service_name : cred.linked_credential_id}
+                  </Link>
+                ) : null} />
+                <FR label="Azure Subscription ID" value={fmt(cred.subscription_id_azure)} />
+                {!ap.showApiKey && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Key</div>
+                      <MaskedField label="" credentialId={cred.credential_id} field="api_key" hasValue={cred.has_api_key} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>API Secret</div>
+                      <MaskedField label="" credentialId={cred.credential_id} field="api_secret" hasValue={cred.has_api_secret} />
+                    </div>
+                  </>
+                )}
+                {!ap.showOAuth && (
+                  <>
+                    <FR label="Client ID" value={fmt(cred.client_id)} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Client Secret</div>
+                      <MaskedField label="" credentialId={cred.credential_id} field="client_secret" hasValue={cred.has_client_secret} />
+                    </div>
+                    <FR label="Tenant ID (App)" value={fmt(cred.tenant_id_app)} />
+                  </>
+                )}
+                {!ap.showServer && (
+                  <>
+                    <FR label="Server Hostname" value={fmt(cred.server_hostname)} />
+                    <FR label="Port" value={fmt(cred.port)} />
+                  </>
+                )}
+                {!ap.showDatabase && (
+                  <>
+                    <FR label="Protocol" value={fmt(cred.protocol)} />
+                    <FR label="Database Name" value={fmt(cred.database_name)} />
+                  </>
+                )}
+              </Section>
+            )
+          })()}
 
           <Section title="7. Ownership & Tracking" open={false}>
             <FR label="Managed By" value={fmt(cred.managed_by)} />

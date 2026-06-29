@@ -161,6 +161,91 @@ function SyncButton({ showToast }: { showToast: (msg: string, type?: ToastType) 
   )
 }
 
+// ── Admin log panel ──────────────────────────────────────────────────────────
+
+function LogPanel({ onClose }: { onClose: () => void }) {
+  const [lines, setLines] = useState<string[]>([])
+  const [paused, setPaused] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const poll = () => {
+      fetch('/api/admin/logs?n=300')
+        .then(r => r.json())
+        .then((d: { lines?: string[] }) => { if (!paused) setLines(d.lines ?? []) })
+        .catch(() => {})
+    }
+    poll()
+    const id = setInterval(poll, 2000)
+    return () => clearInterval(id)
+  }, [paused])
+
+  useEffect(() => {
+    if (!paused) bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [lines, paused])
+
+  function lineColor(line: string): string {
+    if (/ ERROR /.test(line)) return '#f28b82'
+    if (/ WARNING /.test(line)) return '#fdd663'
+    return 'var(--text-2)'
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0, height: 260, zIndex: 200,
+      background: 'var(--surface)', borderTop: '2px solid var(--border)',
+      display: 'flex', flexDirection: 'column',
+      boxShadow: '0 -4px 24px rgba(0,0,0,.12)',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '4px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', fontFamily: 'monospace', letterSpacing: 1, textTransform: 'uppercase' }}>
+          Server Logs
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button
+            title={paused ? 'Resume live tail' : 'Pause scroll'}
+            onClick={() => setPaused(p => !p)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 4, display: 'flex' }}
+          >
+            <span className="icon icon-sm">{paused ? 'play_arrow' : 'pause'}</span>
+          </button>
+          <button
+            title="Clear view"
+            onClick={() => setLines([])}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 4, display: 'flex' }}
+          >
+            <span className="icon icon-sm">delete_sweep</span>
+          </button>
+          <button
+            title="Close"
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4, borderRadius: 4, display: 'flex' }}
+          >
+            <span className="icon icon-sm">close</span>
+          </button>
+        </div>
+      </div>
+      <div
+        ref={containerRef}
+        style={{ flex: 1, overflowY: 'auto', padding: '8px 14px', fontFamily: 'monospace', fontSize: 11.5, lineHeight: 1.55 }}
+      >
+        {lines.length === 0
+          ? <span style={{ color: 'var(--text-3)' }}>No log entries yet…</span>
+          : lines.map((line, i) => (
+            <div key={i} style={{ color: lineColor(line), whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{line}</div>
+          ))
+        }
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  )
+}
+
 // ── Icon button (theme, settings) ─────────────────────────────────────────────
 
 function HeaderIconBtn({ icon, title, onClick }: { icon: string; title: string; onClick: () => void }) {
@@ -306,6 +391,7 @@ function AppInner() {
   }, [navigate, canCreate])
 
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [logPanelOpen, setLogPanelOpen] = useState(false)
   const [theme, setThemeState] = useState<'light' | 'dark'>(() =>
     (localStorage.getItem('cred-theme') as 'light' | 'dark') || 'light'
   )
@@ -461,6 +547,13 @@ function AppInner() {
                 title="Settings"
                 onClick={() => navigate('/settings')}
               />
+              {isAdmin && (
+                <HeaderIconBtn
+                  icon="terminal"
+                  title="Server logs (admin)"
+                  onClick={() => setLogPanelOpen(o => !o)}
+                />
+              )}
               <div style={{ marginLeft: 8 }}>
                 <UserMenu />
               </div>
@@ -490,6 +583,7 @@ function AppInner() {
         </main>
       </div>
 
+      {isAdmin && logPanelOpen && <LogPanel onClose={() => setLogPanelOpen(false)} />}
       <ToastContainer toasts={toasts} onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))} />
     </ToastContext.Provider>
   )

@@ -19,6 +19,7 @@ Routes:
 
 from __future__ import annotations
 
+import collections
 import hmac
 import logging
 import os
@@ -50,7 +51,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "1.4.9"
+# In-memory log buffer — last 500 lines, readable via /api/admin/logs
+_log_buffer: collections.deque = collections.deque(maxlen=500)
+
+class _BufferHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            _log_buffer.append(self.format(record))
+        except Exception:
+            pass
+
+_buf_handler = _BufferHandler()
+_buf_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logging.getLogger().addHandler(_buf_handler)
+
+APP_VERSION = "1.5.0"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()
@@ -175,8 +190,7 @@ def sync_push(
     graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
-        result = sync_to_excel(db, graph, scope=scope)
-        return {"status": "ok", "result": result}
+        return sync_to_excel(db, graph, scope=scope)
     except Exception as exc:
         return JSONResponse(
             status_code=500,
@@ -199,8 +213,7 @@ def sync_pull(
     graph = _graph_client_from_header(x_ms_graph_token)
     db = SessionLocal()
     try:
-        result = sync_from_excel(db, graph, scope=scope)
-        return {"status": "ok", "result": result}
+        return sync_from_excel(db, graph, scope=scope)
     except Exception as exc:
         return JSONResponse(
             status_code=500,
@@ -296,6 +309,17 @@ def mark_all_for_sync() -> dict:
         return JSONResponse(status_code=500, content={"status": "error", "detail": str(exc)})
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin: in-memory log viewer
+# ---------------------------------------------------------------------------
+
+@app.get("/api/admin/logs", tags=["admin"])
+def get_admin_logs(n: int = 200) -> dict:
+    """Return the last N lines from the in-memory log buffer (max 500)."""
+    lines = list(_log_buffer)[-(min(n, 500)):]
+    return {"lines": lines, "total": len(_log_buffer)}
 
 
 # ---------------------------------------------------------------------------

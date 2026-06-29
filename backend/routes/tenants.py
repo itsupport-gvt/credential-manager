@@ -367,14 +367,16 @@ class UpdateCategoryRequest(BaseModel):
 
 
 def _next_category_id(db: Session) -> str:
-    row = db.query(DBCategory.category_id).order_by(DBCategory.category_id.desc()).first()
-    if row:
-        try:
-            num = int(row[0].split("-")[-1])
-        except (ValueError, IndexError):
-            num = 0
-        return f"CAT-{num + 1:03d}"
-    return "CAT-001"
+    rows = db.query(DBCategory.category_id).all()
+    max_num = 0
+    for (cat_id,) in rows:
+        parts = (cat_id or "").split("-")
+        if len(parts) >= 2:
+            try:
+                max_num = max(max_num, int(parts[-1]))
+            except (ValueError, IndexError):
+                pass
+    return f"CAT-{max_num + 1:03d}"
 
 
 @router.post("/category/create", response_model=CategoryResponse, status_code=201)
