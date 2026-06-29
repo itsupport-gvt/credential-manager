@@ -107,12 +107,8 @@ export function SearchableSelect({
       e.preventDefault()
       if (filtered[active]) pick(filtered[active])
     } else if (e.key === 'Tab') {
-      if (filtered[active]) {
-        e.preventDefault()
-        pick(filtered[active])
-      } else {
-        setOpen(false); setQuery('')
-      }
+      // Tab always closes without selecting — let focus move to the next field
+      setOpen(false); setQuery('')
     } else if (e.key === 'Escape') {
       setOpen(false); setQuery('')
     }
@@ -120,9 +116,8 @@ export function SearchableSelect({
 
   function handleFocus() {
     if (disabled) return
-    setOpen(true)
-    setActive(0)
-    // Select-all so typing replaces the current selection
+    // Don't auto-open on focus — only open on click or keyboard (ArrowDown/Enter).
+    // This prevents Tab-through from accidentally activating the dropdown.
     requestAnimationFrame(() => inputRef.current?.select())
   }
 
