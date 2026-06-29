@@ -65,7 +65,7 @@ _buf_handler = _BufferHandler()
 _buf_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
 logging.getLogger().addHandler(_buf_handler)
 
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.5.1"
 
 # Token set by Electron via env var on every launch. Empty = dev/browser mode (no enforcement).
 _APP_SECRET_TOKEN: str = os.environ.get("APP_SECRET_TOKEN", "").strip()

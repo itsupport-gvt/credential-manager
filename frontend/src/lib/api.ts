@@ -216,6 +216,9 @@ export const api = {
   // Admin — mark every credential needs_sync=true so next push repopulates all Excel rows
   markAllForSync: () => req<{ status: string; marked: number }>('/api/admin/mark-all-for-sync', { method: 'POST' }),
 
+  // Admin — in-memory log buffer
+  getAdminLogs: (n = 300) => req<{ lines: string[]; total: number }>(`/api/admin/logs?n=${n}`),
+
   // Auth
   getMe: () => req<{ auth_enabled: boolean; user: { oid: string; name: string; email: string; role: string } | null }>('/api/auth/me'),
   listAuthUsers: () => req<AuthUser[]>('/api/auth/users'),

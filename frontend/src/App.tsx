@@ -171,9 +171,8 @@ function LogPanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const poll = () => {
-      fetch('/api/admin/logs?n=300')
-        .then(r => r.json())
-        .then((d: { lines?: string[] }) => { if (!paused) setLines(d.lines ?? []) })
+      api.getAdminLogs(300)
+        .then(d => { if (!paused) setLines(d.lines) })
         .catch(() => {})
     }
     poll()
@@ -385,10 +384,14 @@ function AppInner() {
         e.preventDefault()
         navigate('/credential/new')
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === '`' && isAdmin) {
+        e.preventDefault()
+        setLogPanelOpen(o => !o)
+      }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [navigate, canCreate])
+  }, [navigate, canCreate, isAdmin])
 
   const [toasts, setToasts] = useState<Toast[]>([])
   const [logPanelOpen, setLogPanelOpen] = useState(false)
